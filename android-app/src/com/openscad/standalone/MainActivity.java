@@ -46,19 +46,21 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
-    private static final String BUILD_MARKER = "2026-02-18_20:06_v4";
+    private static final String BUILD_MARKER = "2026-02-18_20:20_v5";
 
-    private static final int C_BG = Color.parseColor("#1e1e2e");
-    private static final int C_SURFACE = Color.parseColor("#282a36");
-    private static final int C_SURFACE_2 = Color.parseColor("#313244");
-    private static final int C_TOOLBAR = Color.parseColor("#181825");
-    private static final int C_BORDER = Color.parseColor("#45475a");
-    private static final int C_TEXT = Color.parseColor("#cdd6f4");
-    private static final int C_TEXT_2 = Color.parseColor("#a6adc8");
-    private static final int C_ACCENT = Color.parseColor("#89b4fa");
-    private static final int C_GREEN = Color.parseColor("#a6e3a1");
-    private static final int C_RED = Color.parseColor("#f38ba8");
-    private static final int C_YELLOW = Color.parseColor("#f9e2af");
+    private static final int C_BG = Color.parseColor("#0c111a");
+    private static final int C_BG_2 = Color.parseColor("#111a27");
+    private static final int C_SURFACE = Color.parseColor("#152131");
+    private static final int C_SURFACE_2 = Color.parseColor("#1d2c40");
+    private static final int C_TOOLBAR = Color.parseColor("#0f1724");
+    private static final int C_BORDER = Color.parseColor("#30445f");
+    private static final int C_TEXT = Color.parseColor("#e9f0fb");
+    private static final int C_TEXT_2 = Color.parseColor("#9fb2cb");
+    private static final int C_ACCENT = Color.parseColor("#5fd6ff");
+    private static final int C_ACCENT_2 = Color.parseColor("#3f9dff");
+    private static final int C_GREEN = Color.parseColor("#7de4b2");
+    private static final int C_RED = Color.parseColor("#ff8e9f");
+    private static final int C_YELLOW = Color.parseColor("#ffd68d");
 
     private static final String DEFAULT_FILE = "example.scad";
 
@@ -163,10 +165,10 @@ public class MainActivity extends Activity {
     private void buildUi() {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(C_BG);
+        root.setBackground(makePanelGradient(C_BG, C_BG_2, 0, C_BG, false));
 
         root.addView(buildToolbar(), new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, dp(48)));
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(54)));
 
         LinearLayout main = new LinearLayout(this);
         main.setOrientation(compactLayout ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
@@ -212,17 +214,18 @@ public class MainActivity extends Activity {
         LinearLayout toolbar = new LinearLayout(this);
         toolbar.setOrientation(LinearLayout.HORIZONTAL);
         toolbar.setGravity(Gravity.CENTER_VERTICAL);
-        toolbar.setPadding(dp(8), dp(6), dp(8), dp(6));
-        toolbar.setBackgroundColor(C_TOOLBAR);
+        toolbar.setPadding(dp(10), dp(8), dp(10), dp(8));
+        toolbar.setBackground(makePanelGradient(C_TOOLBAR, C_SURFACE, 0, C_BORDER, true));
 
         TextView logo = new TextView(this);
-        logo.setText("OpenSCAD");
+        logo.setText("OPENSCAD");
         logo.setTextColor(C_ACCENT);
-        logo.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        logo.setTypeface(Typeface.DEFAULT_BOLD);
+        logo.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        logo.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
+        logo.setLetterSpacing(0.08f);
         LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        logoParams.rightMargin = dp(8);
+        logoParams.rightMargin = dp(10);
         toolbar.addView(logo, logoParams);
 
         Button filesButton = makeToolbarButton("Files", false);
@@ -269,10 +272,13 @@ public class MainActivity extends Activity {
         statusText.setTextColor(C_TEXT_2);
         statusText.setEllipsize(TextUtils.TruncateAt.END);
         statusText.setSingleLine(true);
-        statusText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(dp(180),
+        statusText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        statusText.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        statusText.setPadding(dp(10), dp(5), dp(10), dp(5));
+        statusText.setBackground(makePanelGradient(C_SURFACE_2, C_SURFACE, 12, C_BORDER, false));
+        LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(dp(190),
             ViewGroup.LayoutParams.WRAP_CONTENT);
-        statusParams.rightMargin = dp(8);
+        statusParams.rightMargin = dp(10);
         toolbar.addView(statusText, statusParams);
 
         Button logButton = makeToolbarButton("Log", false);
@@ -290,14 +296,15 @@ public class MainActivity extends Activity {
     private LinearLayout buildSidebar() {
         LinearLayout side = new LinearLayout(this);
         side.setOrientation(LinearLayout.VERTICAL);
-        side.setBackgroundColor(C_TOOLBAR);
+        side.setBackground(makePanelGradient(C_TOOLBAR, C_SURFACE, 0, C_BORDER, false));
 
         TextView header = new TextView(this);
-        header.setText("Files");
+        header.setText("PROJECT FILES");
         header.setTextColor(C_TEXT);
-        header.setTypeface(Typeface.DEFAULT_BOLD);
-        header.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        header.setPadding(dp(10), dp(10), dp(10), dp(6));
+        header.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        header.setLetterSpacing(0.05f);
+        header.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        header.setPadding(dp(12), dp(12), dp(12), dp(8));
         side.addView(header);
 
         Button newButton = makeToolbarButton("+ New", false);
@@ -315,7 +322,7 @@ public class MainActivity extends Activity {
 
         fileList = new ListView(this);
         fileList.setDividerHeight(0);
-        fileList.setBackgroundColor(C_TOOLBAR);
+        fileList.setBackgroundColor(Color.TRANSPARENT);
         fileAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, fileNames) {
             @Override
             public View getView(int position, View convertView, ViewGroup parent) {
@@ -323,7 +330,11 @@ public class MainActivity extends Activity {
                 String name = getItem(position);
                 boolean active = name != null && name.equals(currentFile);
                 tv.setTextColor(active ? C_BG : C_TEXT);
-                tv.setBackgroundColor(active ? C_ACCENT : Color.TRANSPARENT);
+                tv.setTypeface(Typeface.create("sans-serif-medium", active ? Typeface.BOLD : Typeface.NORMAL));
+                tv.setBackground(active
+                    ? makePanelGradient(C_ACCENT, C_ACCENT_2, 10, C_ACCENT_2, false)
+                    : makePanelGradient(Color.TRANSPARENT, Color.TRANSPARENT, 10, C_BORDER, false)
+                );
                 tv.setPadding(dp(12), dp(9), dp(12), dp(9));
                 tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
                 return tv;
@@ -357,14 +368,15 @@ public class MainActivity extends Activity {
     private LinearLayout buildEditorPanel() {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setBackgroundColor(C_BG);
+        panel.setBackground(makePanelGradient(C_BG, C_SURFACE, 0, C_BORDER, false));
 
         currentTab = new TextView(this);
         currentTab.setText(DEFAULT_FILE);
         currentTab.setTextColor(C_TEXT);
-        currentTab.setBackgroundColor(C_TOOLBAR);
-        currentTab.setTypeface(Typeface.DEFAULT_BOLD);
-        currentTab.setPadding(dp(10), dp(8), dp(10), dp(8));
+        currentTab.setBackground(makePanelGradient(C_TOOLBAR, C_SURFACE, 0, C_BORDER, false));
+        currentTab.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        currentTab.setLetterSpacing(0.04f);
+        currentTab.setPadding(dp(12), dp(9), dp(12), dp(9));
         currentTab.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         panel.addView(currentTab, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -373,8 +385,8 @@ public class MainActivity extends Activity {
         editor.setText(DEFAULT_CODE);
         editor.setTextColor(C_TEXT);
         editor.setHintTextColor(C_TEXT_2);
-        editor.setBackgroundColor(C_SURFACE);
-        editor.setTypeface(Typeface.MONOSPACE);
+        editor.setBackground(makePanelGradient(C_SURFACE, C_BG_2, 0, C_BORDER, false));
+        editor.setTypeface(Typeface.create("monospace", Typeface.NORMAL));
         editor.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         editor.setGravity(Gravity.TOP | Gravity.START);
         editor.setPadding(dp(12), dp(12), dp(12), dp(12));
@@ -391,18 +403,20 @@ public class MainActivity extends Activity {
     private LinearLayout buildPreviewPanel() {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setBackgroundColor(Color.parseColor("#11111b"));
+        panel.setBackground(makePanelGradient(C_BG, C_BG_2, 0, C_BORDER, false));
 
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setBackgroundColor(C_TOOLBAR);
-        header.setPadding(dp(10), dp(6), dp(10), dp(6));
+        header.setBackground(makePanelGradient(C_TOOLBAR, C_SURFACE, 0, C_BORDER, false));
+        header.setPadding(dp(12), dp(7), dp(12), dp(7));
 
         TextView title = new TextView(this);
-        title.setText("3D Viewer");
+        title.setText("3D VIEWER");
         title.setTextColor(C_TEXT_2);
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        title.setLetterSpacing(0.05f);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         header.addView(title);
 
         View spacer = new View(this);
@@ -436,7 +450,7 @@ public class MainActivity extends Activity {
         FrameLayout container = new FrameLayout(this);
 
         previewSurface = new StlGlSurfaceView(this);
-        previewSurface.setBackgroundColor(Color.parseColor("#11111b"));
+        previewSurface.setBackgroundColor(C_BG_2);
         previewSurface.setWireframeMode(wireframeMode);
         previewSurface.showDebugCube();
         container.addView(previewSurface, new FrameLayout.LayoutParams(
@@ -446,6 +460,7 @@ public class MainActivity extends Activity {
         previewHint.setText("Debug cube should be visible now.\nTap Render to load STL.");
         previewHint.setTextColor(C_TEXT_2);
         previewHint.setGravity(Gravity.CENTER);
+        previewHint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         previewHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         container.addView(previewHint, new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -459,17 +474,19 @@ public class MainActivity extends Activity {
     private LinearLayout buildConsolePanel() {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setBackgroundColor(C_TOOLBAR);
+        panel.setBackground(makePanelGradient(C_TOOLBAR, C_SURFACE, 0, C_BORDER, false));
 
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(8), dp(6), dp(8), dp(6));
+        header.setPadding(dp(10), dp(7), dp(10), dp(7));
+        header.setBackground(makePanelGradient(C_TOOLBAR, C_SURFACE, 0, C_BORDER, true));
 
         TextView title = new TextView(this);
-        title.setText("Console");
+        title.setText("CONSOLE");
         title.setTextColor(C_TEXT);
-        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        title.setLetterSpacing(0.05f);
         header.addView(title);
 
         View spacer = new View(this);
@@ -517,15 +534,21 @@ public class MainActivity extends Activity {
         Button button = new Button(this);
         button.setText(text);
         button.setAllCaps(false);
-        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        button.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         button.setTextColor(primary ? C_BG : C_TEXT);
 
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(primary ? C_ACCENT : C_SURFACE_2);
-        bg.setCornerRadius(dp(7));
-        bg.setStroke(dp(1), C_BORDER);
+        GradientDrawable bg = makePanelGradient(
+            primary ? C_ACCENT : C_SURFACE_2,
+            primary ? C_ACCENT_2 : C_SURFACE,
+            10,
+            primary ? C_ACCENT_2 : C_BORDER,
+            false
+        );
         button.setBackground(bg);
-        button.setPadding(dp(10), dp(4), dp(10), dp(4));
+        button.setPadding(dp(12), dp(5), dp(12), dp(5));
+        button.setElevation(dp(1));
+        button.setMinHeight(dp(34));
 
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -886,6 +909,18 @@ public class MainActivity extends Activity {
             TypedValue.COMPLEX_UNIT_DIP,
             value,
             getResources().getDisplayMetrics()));
+    }
+
+    private GradientDrawable makePanelGradient(int startColor, int endColor, int radiusDp, int strokeColor, boolean vertical) {
+        GradientDrawable bg = new GradientDrawable(
+            vertical ? GradientDrawable.Orientation.TOP_BOTTOM : GradientDrawable.Orientation.LEFT_RIGHT,
+            new int[] {startColor, endColor}
+        );
+        bg.setCornerRadius(dp(radiusDp));
+        if (strokeColor != Color.TRANSPARENT) {
+            bg.setStroke(dp(1), strokeColor);
+        }
+        return bg;
     }
 
     private interface NameCallback {
