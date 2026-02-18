@@ -4,7 +4,11 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ContentValues;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.database.Cursor;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
@@ -14,6 +18,8 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
+import android.provider.OpenableColumns;
+import android.text.Editable;
 import android.text.InputType;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
@@ -34,24 +40,29 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Comparator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 public class MainActivity extends Activity {
-    private static final String BUILD_MARKER = "2026-02-18_20:42_v7";
+    private static final String BUILD_MARKER = "2026-02-18_22:18_v8";
 
     private static final int C_BG = Color.parseColor("#0c111a");
     private static final int C_BG_2 = Color.parseColor("#111a27");
@@ -68,6 +79,7 @@ public class MainActivity extends Activity {
     private static final int C_YELLOW = Color.parseColor("#ffd68d");
 
     private static final String DEFAULT_FILE = "example.scad";
+    private static final int RC_IMPORT_LIBRARY = 4001;
 
     private static final String DEFAULT_CODE =
         "// OpenSCAD Example - Parametric Box\n" +
@@ -269,6 +281,15 @@ public class MainActivity extends Activity {
         });
         toolbar.addView(exportButton);
 
+        Button libsButton = makeToolbarButton("Libs", false);
+        libsButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showLibrariesDialog();
+            }
+        });
+        toolbar.addView(libsButton);
+
         View spacer = new View(this);
         toolbar.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1f));
 
@@ -396,7 +417,7 @@ public class MainActivity extends Activity {
         panel.addView(currentTab, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        editor = new EditText(this);
+        editor = new LineNumberEditText(this);
         editor.setText(DEFAULT_CODE);
         editor.setTextColor(C_TEXT);
         editor.setHintTextColor(C_TEXT_2);
@@ -467,28 +488,94 @@ public class MainActivity extends Activity {
         previewSurface = new StlGlSurfaceView(this);
         previewSurface.setBackgroundColor(C_BG_2);
         previewSurface.setWireframeMode(wireframeMode);
-        previewSurface.showDebugCube();
         container.addView(previewSurface, new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         FrameLayout axisPad = new FrameLayout(this);
-        axisPad.setPadding(dp(10), dp(10), dp(10), dp(10));
-        axisPad.setBackground(makePanelGradient(0xCC0f1724, 0xCC152131, 22, C_BORDER, true));
+        axisPad.setBackground(makePanelGradient(0xD9101A2A, 0xD9152437, 24, C_BORDER, true));
 
-        int gizmoSize = dp(110);
+        int gizmoSize = dp(128);
         FrameLayout.LayoutParams gizmoParams = new FrameLayout.LayoutParams(
             gizmoSize,
             gizmoSize
         );
         axisPad.setLayoutParams(gizmoParams);
+        axisPad.addView(buildGizmoGuides(gizmoSize), new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        axisPad.addView(makeGizmoButton("ISO", C_ACCENT, C_BG, C_ACCENT_2, StlGlSurfaceView.ViewPreset.ISO, 0, 0));
-        axisPad.addView(makeGizmoButton("X", 0xFFFF6B7A, C_BG, 0xFF3D1016, StlGlSurfaceView.ViewPreset.POS_X, 1, 0));
-        axisPad.addView(makeGizmoButton("x", 0xFF5D2A33, C_BG, 0xFFFFD3D9, StlGlSurfaceView.ViewPreset.NEG_X, -1, 0));
-        axisPad.addView(makeGizmoButton("Y", 0xFF7DE4B2, C_BG, 0xFF123726, StlGlSurfaceView.ViewPreset.POS_Y, 0, -1));
-        axisPad.addView(makeGizmoButton("y", 0xFF275543, C_BG, 0xFFC9F5E2, StlGlSurfaceView.ViewPreset.NEG_Y, 0, 1));
-        axisPad.addView(makeGizmoButton("Z", 0xFF72A8FF, C_BG, 0xFF112947, StlGlSurfaceView.ViewPreset.POS_Z, 1, -1));
-        axisPad.addView(makeGizmoButton("z", 0xFF2A4064, C_BG, 0xFFD3E4FF, StlGlSurfaceView.ViewPreset.NEG_Z, -1, 1));
+        int c = gizmoSize / 2;
+        int outer = dp(42);
+        int diag = dp(30);
+        axisPad.addView(makeGizmoButton(
+            "ISO",
+            C_ACCENT,
+            C_BG,
+            C_ACCENT_2,
+            StlGlSurfaceView.ViewPreset.ISO,
+            c,
+            c,
+            30
+        ));
+        axisPad.addView(makeGizmoButton(
+            "X",
+            0xFFFF6B7A,
+            C_BG,
+            0xFF3D1016,
+            StlGlSurfaceView.ViewPreset.POS_X,
+            c + outer,
+            c,
+            24
+        ));
+        axisPad.addView(makeGizmoButton(
+            "-X",
+            0xFF5A313A,
+            C_BG,
+            0xFFFFD7DD,
+            StlGlSurfaceView.ViewPreset.NEG_X,
+            c - outer,
+            c,
+            24
+        ));
+        axisPad.addView(makeGizmoButton(
+            "Y",
+            0xFF7DE4B2,
+            C_BG,
+            0xFF133424,
+            StlGlSurfaceView.ViewPreset.POS_Y,
+            c - diag,
+            c - diag,
+            24
+        ));
+        axisPad.addView(makeGizmoButton(
+            "-Y",
+            0xFF315848,
+            C_BG,
+            0xFFD8FFEE,
+            StlGlSurfaceView.ViewPreset.NEG_Y,
+            c + diag,
+            c + diag,
+            24
+        ));
+        axisPad.addView(makeGizmoButton(
+            "Z",
+            0xFF72A8FF,
+            C_BG,
+            0xFF112947,
+            StlGlSurfaceView.ViewPreset.POS_Z,
+            c,
+            c - outer,
+            24
+        ));
+        axisPad.addView(makeGizmoButton(
+            "-Z",
+            0xFF2D476D,
+            C_BG,
+            0xFFDCEAFF,
+            StlGlSurfaceView.ViewPreset.NEG_Z,
+            c,
+            c + outer,
+            24
+        ));
 
         FrameLayout.LayoutParams axisPadParams = new FrameLayout.LayoutParams(
             gizmoSize,
@@ -499,7 +586,7 @@ public class MainActivity extends Activity {
         container.addView(axisPad, axisPadParams);
 
         previewHint = new TextView(this);
-        previewHint.setText("Tap Render to load STL\n1-finger rotate, 2-finger pan/zoom");
+        previewHint.setText("Tap Render to load STL\n1-finger rotate, 2-finger pan, pinch to zoom");
         previewHint.setTextColor(C_TEXT_2);
         previewHint.setGravity(Gravity.CENTER);
         previewHint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
@@ -605,14 +692,15 @@ public class MainActivity extends Activity {
         int strokeColor,
         int textColor,
         final StlGlSurfaceView.ViewPreset preset,
-        int gx,
-        int gy
+        int centerX,
+        int centerY,
+        int sizeDp
     ) {
         Button button = new Button(this);
         button.setText(text);
         button.setAllCaps(false);
         boolean iso = "ISO".equals(text);
-        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, iso ? 9 : 10);
+        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, iso ? 8.5f : 8f);
         button.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
         button.setTextColor(textColor);
         GradientDrawable bg = new GradientDrawable();
@@ -634,17 +722,47 @@ public class MainActivity extends Activity {
             }
         });
 
-        int size = iso ? dp(30) : dp(24);
-        int center = dp(55);
-        int step = dp(23);
-        int left = center - (size / 2) + (gx * step);
-        int top = center - (size / 2) + (gy * step);
+        int size = dp(sizeDp);
+        int left = centerX - (size / 2);
+        int top = centerY - (size / 2);
 
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(size, size);
         params.leftMargin = left;
         params.topMargin = top;
         button.setLayoutParams(params);
         return button;
+    }
+
+    private View buildGizmoGuides(final int sizePx) {
+        return new View(this) {
+            @Override
+            protected void onDraw(Canvas canvas) {
+                super.onDraw(canvas);
+
+                Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(dp(1));
+
+                int c = sizePx / 2;
+                int outer = dp(42);
+                int diag = dp(30);
+
+                paint.setColor(0x66FF6B7A);
+                canvas.drawLine(c, c, c + outer, c, paint);
+                canvas.drawLine(c, c, c - outer, c, paint);
+
+                paint.setColor(0x6672A8FF);
+                canvas.drawLine(c, c, c, c - outer, paint);
+                canvas.drawLine(c, c, c, c + outer, paint);
+
+                paint.setColor(0x667DE4B2);
+                canvas.drawLine(c, c, c - diag, c - diag, paint);
+                canvas.drawLine(c, c, c + diag, c + diag, paint);
+
+                paint.setColor(0x335fd6ff);
+                canvas.drawCircle(c, c, dp(46), paint);
+            }
+        };
     }
 
     private void ensureDefaultProject() {
@@ -966,6 +1084,374 @@ public class MainActivity extends Activity {
             setStatus("Export failed");
             appendLog("Export failed: " + e.getMessage(), C_RED);
         }
+    }
+
+    private void showLibrariesDialog() {
+        final List<String> libs = listLibraryScadFiles();
+        final List<String> options = new ArrayList<String>();
+        options.add("Import .scad/.zip");
+        if (!libs.isEmpty()) {
+            options.add("Insert use <...>;");
+            options.add("Insert include <...>;");
+        }
+        options.add("Show library folder");
+
+        final String[] labels = options.toArray(new String[0]);
+        new AlertDialog.Builder(this)
+            .setTitle("OpenSCAD Libraries")
+            .setItems(labels, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int which) {
+                    if (which == 0) {
+                        launchLibraryPicker();
+                        return;
+                    }
+
+                    int next = 1;
+                    if (!libs.isEmpty()) {
+                        if (which == next) {
+                            showInsertLibraryDialog(libs, false);
+                            return;
+                        }
+                        next++;
+                        if (which == next) {
+                            showInsertLibraryDialog(libs, true);
+                            return;
+                        }
+                        next++;
+                    }
+
+                    if (which == next) {
+                        String path = runtime.getUserLibrariesDir().getAbsolutePath();
+                        appendLog("Libraries folder: " + path, C_TEXT_2);
+                        Toast.makeText(MainActivity.this, path, Toast.LENGTH_LONG).show();
+                    }
+                }
+            })
+            .setNegativeButton("Close", null)
+            .show();
+    }
+
+    private void launchLibraryPicker() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
+            "text/*",
+            "application/zip",
+            "application/x-zip-compressed",
+            "application/octet-stream"
+        });
+        startActivityForResult(intent, RC_IMPORT_LIBRARY);
+    }
+
+    private void showInsertLibraryDialog(final List<String> libs, final boolean include) {
+        if (libs.isEmpty()) {
+            Toast.makeText(this, "No imported .scad libraries yet", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        final String[] items = libs.toArray(new String[0]);
+        new AlertDialog.Builder(this)
+            .setTitle(include ? "Insert include <...>;" : "Insert use <...>;")
+            .setItems(items, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int which) {
+                    if (which < 0 || which >= items.length) {
+                        return;
+                    }
+                    insertLibraryDirective(items[which], include);
+                }
+            })
+            .setNegativeButton("Cancel", null)
+            .show();
+    }
+
+    private void insertLibraryDirective(String libraryPath, boolean include) {
+        Editable editable = editor.getText();
+        if (editable == null) {
+            return;
+        }
+        int pos = Math.max(0, editor.getSelectionStart());
+        String line = (include ? "include <" : "use <") + libraryPath + ">;\n";
+        editable.insert(pos, line);
+        setStatus(include ? "Inserted include" : "Inserted use");
+    }
+
+    private List<String> listLibraryScadFiles() {
+        List<String> libs = new ArrayList<String>();
+        collectLibraryScadFiles(runtime.getUserLibrariesDir(), runtime.getUserLibrariesDir(), libs);
+        Collections.sort(libs, String.CASE_INSENSITIVE_ORDER);
+        return libs;
+    }
+
+    private void collectLibraryScadFiles(File root, File dir, List<String> out) {
+        File[] files = dir.listFiles();
+        if (files == null) {
+            return;
+        }
+        Arrays.sort(files, new Comparator<File>() {
+            @Override
+            public int compare(File a, File b) {
+                return a.getName().compareToIgnoreCase(b.getName());
+            }
+        });
+        for (File file : files) {
+            if (file.isDirectory()) {
+                collectLibraryScadFiles(root, file, out);
+            } else if (file.getName().toLowerCase(Locale.US).endsWith(".scad")) {
+                String path = root.toURI().relativize(file.toURI()).getPath();
+                if (path != null && !path.trim().isEmpty()) {
+                    out.add(path);
+                }
+            }
+        }
+    }
+
+    private String importLibraryFromUri(Uri uri) throws IOException {
+        String displayName = queryDisplayName(uri);
+        if (displayName == null || displayName.trim().isEmpty()) {
+            displayName = "library.scad";
+        }
+
+        String safeName = makeSafeLibraryName(displayName);
+        String lower = safeName.toLowerCase(Locale.US);
+        if (lower.endsWith(".zip")) {
+            int count = unzipLibraryArchive(uri, safeName);
+            return safeName + " (" + count + " files)";
+        }
+
+        if (!lower.endsWith(".scad")) {
+            safeName = safeName + ".scad";
+        }
+        File target = resolveUniqueFile(new File(runtime.getUserLibrariesDir(), safeName));
+        copyUriToFile(uri, target);
+        return target.getName();
+    }
+
+    private String queryDisplayName(Uri uri) {
+        Cursor cursor = null;
+        try {
+            cursor = getContentResolver().query(uri, new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null);
+            if (cursor != null && cursor.moveToFirst()) {
+                int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (index >= 0) {
+                    return cursor.getString(index);
+                }
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+        return null;
+    }
+
+    private int unzipLibraryArchive(Uri uri, String archiveName) throws IOException {
+        String baseDirName = makeSafeLibraryName(stripExtension(archiveName));
+        if (baseDirName.isEmpty()) {
+            baseDirName = "library";
+        }
+        File importRoot = resolveUniqueDirectory(new File(runtime.getUserLibrariesDir(), baseDirName));
+        if (!importRoot.exists() && !importRoot.mkdirs()) {
+            throw new IOException("Could not create " + importRoot.getAbsolutePath());
+        }
+
+        InputStream baseIn = getContentResolver().openInputStream(uri);
+        if (baseIn == null) {
+            throw new IOException("Could not open selected archive");
+        }
+        ZipInputStream zipIn = new ZipInputStream(new BufferedInputStream(baseIn));
+        byte[] buffer = new byte[8192];
+        int writtenFiles = 0;
+        String rootPath = importRoot.getCanonicalPath() + File.separator;
+
+        try {
+            ZipEntry entry;
+            while ((entry = zipIn.getNextEntry()) != null) {
+                String name = entry.getName();
+                if (name == null || name.trim().isEmpty()) {
+                    zipIn.closeEntry();
+                    continue;
+                }
+                name = name.replace('\\', '/');
+                while (name.startsWith("/")) {
+                    name = name.substring(1);
+                }
+                if (name.contains("..")) {
+                    zipIn.closeEntry();
+                    continue;
+                }
+
+                File outFile = new File(importRoot, name);
+                String outPath = outFile.getCanonicalPath();
+                if (!(outPath.equals(importRoot.getCanonicalPath()) || outPath.startsWith(rootPath))) {
+                    zipIn.closeEntry();
+                    continue;
+                }
+
+                if (entry.isDirectory()) {
+                    outFile.mkdirs();
+                    zipIn.closeEntry();
+                    continue;
+                }
+
+                File parent = outFile.getParentFile();
+                if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                    throw new IOException("Could not create " + parent.getAbsolutePath());
+                }
+
+                FileOutputStream out = new FileOutputStream(outFile);
+                int read;
+                while ((read = zipIn.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                }
+                out.flush();
+                out.close();
+                writtenFiles++;
+                zipIn.closeEntry();
+            }
+        } finally {
+            zipIn.close();
+        }
+
+        if (writtenFiles <= 0) {
+            throw new IOException("Archive was empty");
+        }
+        return writtenFiles;
+    }
+
+    private void copyUriToFile(Uri uri, File target) throws IOException {
+        InputStream in = getContentResolver().openInputStream(uri);
+        if (in == null) {
+            throw new IOException("Could not open selected file");
+        }
+        File parent = target.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            in.close();
+            throw new IOException("Could not create " + parent.getAbsolutePath());
+        }
+
+        FileOutputStream out = new FileOutputStream(target);
+        byte[] buffer = new byte[8192];
+        int read;
+        while ((read = in.read(buffer)) != -1) {
+            out.write(buffer, 0, read);
+        }
+        out.flush();
+        out.close();
+        in.close();
+    }
+
+    private File resolveUniqueFile(File file) {
+        if (!file.exists()) {
+            return file;
+        }
+        String name = file.getName();
+        String stem = stripExtension(name);
+        String ext = "";
+        int dot = name.lastIndexOf('.');
+        if (dot >= 0) {
+            ext = name.substring(dot);
+        }
+        int idx = 2;
+        while (true) {
+            File next = new File(file.getParentFile(), stem + "_" + idx + ext);
+            if (!next.exists()) {
+                return next;
+            }
+            idx++;
+        }
+    }
+
+    private File resolveUniqueDirectory(File dir) {
+        if (!dir.exists()) {
+            return dir;
+        }
+        String name = dir.getName();
+        int idx = 2;
+        while (true) {
+            File next = new File(dir.getParentFile(), name + "_" + idx);
+            if (!next.exists()) {
+                return next;
+            }
+            idx++;
+        }
+    }
+
+    private static String stripExtension(String name) {
+        if (name == null) {
+            return "";
+        }
+        int dot = name.lastIndexOf('.');
+        if (dot <= 0) {
+            return name;
+        }
+        return name.substring(0, dot);
+    }
+
+    private static String makeSafeLibraryName(String raw) {
+        if (raw == null) {
+            return "library";
+        }
+        String name = raw.trim().replace('\\', '_').replace('/', '_');
+        name = name.replaceAll("[^a-zA-Z0-9._-]", "_");
+        while (name.startsWith(".")) {
+            name = name.substring(1);
+        }
+        if (name.isEmpty()) {
+            return "library";
+        }
+        return name;
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != RC_IMPORT_LIBRARY || resultCode != RESULT_OK || data == null) {
+            return;
+        }
+
+        final Uri uri = data.getData();
+        if (uri == null) {
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            int flags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+            try {
+                getContentResolver().takePersistableUriPermission(uri, flags);
+            } catch (Exception ignored) {
+            }
+        }
+
+        setStatus("Importing library...");
+        appendLog("Importing library from picker", C_TEXT_2);
+        executor.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    final String imported = importLibraryFromUri(uri);
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            setStatus("Library imported");
+                            appendLog("Imported library: " + imported, C_GREEN);
+                        }
+                    });
+                } catch (final Exception e) {
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            setStatus("Library import failed");
+                            appendLog("Library import failed: " + e.getMessage(), C_RED);
+                            showConsole();
+                        }
+                    });
+                }
+            }
+        });
     }
 
     private Uri exportToPublicDocuments(File source, String fileName) throws IOException {

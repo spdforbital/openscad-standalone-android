@@ -79,6 +79,7 @@ class OpenScadRuntime {
     private final File runtimeHome;
     private final File runtimeFontConfig;
     private final File runtimeOpenScadPath;
+    private final File userLibrariesDir;
     private final File projectsDir;
     private final File rendersDir;
 
@@ -92,9 +93,11 @@ class OpenScadRuntime {
         this.runtimeHome = new File(runtimeRoot, "home");
         this.runtimeFontConfig = new File(runtimeRoot, "etc/fonts");
         this.runtimeOpenScadPath = new File(runtimeRoot, "share/openscad/libraries");
+        this.userLibrariesDir = new File(appContext.getFilesDir(), "libraries");
         this.projectsDir = new File(appContext.getFilesDir(), "projects");
         this.rendersDir = new File(appContext.getFilesDir(), "renders");
 
+        this.userLibrariesDir.mkdirs();
         this.projectsDir.mkdirs();
         this.rendersDir.mkdirs();
     }
@@ -105,6 +108,10 @@ class OpenScadRuntime {
 
     File getRendersDir() {
         return rendersDir;
+    }
+
+    File getUserLibrariesDir() {
+        return userLibrariesDir;
     }
 
     synchronized void prepareRuntime() throws IOException {
@@ -233,7 +240,11 @@ class OpenScadRuntime {
         Map<String, String> env = pb.environment();
         env.put("LD_LIBRARY_PATH", runtimeLib.getAbsolutePath() + ":" + appContext.getApplicationInfo().nativeLibraryDir);
         env.put("HOME", runtimeHome.getAbsolutePath());
-        env.put("OPENSCADPATH", runtimeOpenScadPath.getAbsolutePath());
+        String openScadPath = runtimeOpenScadPath.getAbsolutePath();
+        if (userLibrariesDir.exists()) {
+            openScadPath = userLibrariesDir.getAbsolutePath() + ":" + openScadPath;
+        }
+        env.put("OPENSCADPATH", openScadPath);
         env.put("TMPDIR", appContext.getCacheDir().getAbsolutePath());
         env.put("FONTCONFIG_PATH", runtimeFontConfig.getAbsolutePath());
         env.put("FONTCONFIG_FILE", new File(runtimeFontConfig, "fonts.conf").getAbsolutePath());
