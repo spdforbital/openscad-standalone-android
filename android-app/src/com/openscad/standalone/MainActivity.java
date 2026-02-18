@@ -5,7 +5,6 @@ import android.app.AlertDialog;
 import android.content.ContentValues;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.database.Cursor;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -18,7 +17,6 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
-import android.provider.OpenableColumns;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.Spannable;
@@ -40,30 +38,24 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Comparator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 public class MainActivity extends Activity {
-    private static final String BUILD_MARKER = "2026-02-18_23:41_v11";
+    private static final String BUILD_MARKER = "2026-02-19_00:02_v12";
 
     private static final int C_BG = Color.parseColor("#0c111a");
     private static final int C_BG_2 = Color.parseColor("#111a27");
@@ -115,6 +107,7 @@ public class MainActivity extends Activity {
     private final SpannableStringBuilder logBuilder = new SpannableStringBuilder();
 
     private OpenScadRuntime runtime;
+    private LibraryManager libraryManager;
     private ExecutorService executor;
     private Handler mainHandler;
 
@@ -148,6 +141,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
 
         runtime = new OpenScadRuntime(this);
+        libraryManager = new LibraryManager(this, runtime);
         executor = Executors.newSingleThreadExecutor();
         mainHandler = new Handler(Looper.getMainLooper());
         compactLayout = getResources().getConfiguration().screenWidthDp < 700;
@@ -1162,7 +1156,7 @@ public class MainActivity extends Activity {
     }
 
     private void showLibrariesDialog() {
-        final List<String> libs = listLibraryScadFiles();
+        final List<String> libs = libraryManager.listLibraries();
         final List<String> options = new ArrayList<String>();
         options.add("Import .scad/.zip");
         options.add("Browse libraries");
@@ -1205,7 +1199,7 @@ public class MainActivity extends Activity {
                     }
 
                     if (which == next) {
-                        String path = runtime.getUserLibrariesDir().getAbsolutePath();
+                        String path = libraryManager.getLibrariesDir().getAbsolutePath();
                         appendLog("Libraries folder: " + path, C_TEXT_2);
                         Toast.makeText(MainActivity.this, path, Toast.LENGTH_LONG).show();
                         return;
@@ -1213,7 +1207,7 @@ public class MainActivity extends Activity {
 
                     next++;
                     if (which == next) {
-                        String path = runtime.getUserLibrarySourcesDir().getAbsolutePath();
+                        String path = libraryManager.getLibrarySourcesDir().getAbsolutePath();
                         appendLog("Library source-copy folder: " + path, C_TEXT_2);
                         Toast.makeText(MainActivity.this, path, Toast.LENGTH_LONG).show();
                     }
@@ -1224,7 +1218,7 @@ public class MainActivity extends Activity {
     }
 
     private void showLibraryBrowserDialog() {
-        final List<String> libs = listLibraryScadFiles();
+        final List<String> libs = libraryManager.listLibraries();
         if (libs.isEmpty()) {
             Toast.makeText(this, "No imported .scad libraries yet", Toast.LENGTH_SHORT).show();
             return;
@@ -1280,15 +1274,9 @@ public class MainActivity extends Activity {
         if (libraryPath == null || libraryPath.trim().isEmpty()) {
             return;
         }
-        File file = new File(runtime.getUserLibrariesDir(), libraryPath);
-        if (!file.exists() || !file.isFile()) {
-            setStatus("Library missing");
-            appendLog("Library file not found: " + libraryPath, C_RED);
-            return;
-        }
 
         try {
-            String code = readTextFile(file);
+            String code = libraryManager.readLibrarySource(libraryPath);
             editor.setText(code);
             currentTab.setText("LIB: " + libraryPath);
             libraryPreviewMode = true;
@@ -1347,234 +1335,6 @@ public class MainActivity extends Activity {
         setStatus(include ? "Inserted include" : "Inserted use");
     }
 
-    private List<String> listLibraryScadFiles() {
-        List<String> libs = new ArrayList<String>();
-        collectLibraryScadFiles(runtime.getUserLibrariesDir(), runtime.getUserLibrariesDir(), libs);
-        Collections.sort(libs, String.CASE_INSENSITIVE_ORDER);
-        return libs;
-    }
-
-    private void collectLibraryScadFiles(File root, File dir, List<String> out) {
-        File[] files = dir.listFiles();
-        if (files == null) {
-            return;
-        }
-        Arrays.sort(files, new Comparator<File>() {
-            @Override
-            public int compare(File a, File b) {
-                return a.getName().compareToIgnoreCase(b.getName());
-            }
-        });
-        for (File file : files) {
-            if (file.isDirectory()) {
-                collectLibraryScadFiles(root, file, out);
-            } else if (file.getName().toLowerCase(Locale.US).endsWith(".scad")) {
-                String path = root.toURI().relativize(file.toURI()).getPath();
-                if (path != null && !path.trim().isEmpty()) {
-                    out.add(path);
-                }
-            }
-        }
-    }
-
-    private String importLibraryFromUri(Uri uri) throws IOException {
-        String displayName = queryDisplayName(uri);
-        if (displayName == null || displayName.trim().isEmpty()) {
-            displayName = "library.scad";
-        }
-
-        String safeName = makeSafeLibraryName(displayName);
-        String lower = safeName.toLowerCase(Locale.US);
-        File sourceCopy = resolveUniqueFile(new File(runtime.getUserLibrarySourcesDir(), safeName));
-        copyUriToFile(uri, sourceCopy);
-
-        if (lower.endsWith(".zip")) {
-            int count = unzipLibraryArchive(sourceCopy, safeName);
-            return safeName + " copied + extracted (" + count + " files)";
-        }
-
-        if (!lower.endsWith(".scad")) {
-            safeName = safeName + ".scad";
-        }
-        File target = resolveUniqueFile(new File(runtime.getUserLibrariesDir(), safeName));
-        copyFile(sourceCopy, target);
-        return target.getName() + " copied";
-    }
-
-    private String queryDisplayName(Uri uri) {
-        Cursor cursor = null;
-        try {
-            cursor = getContentResolver().query(uri, new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null);
-            if (cursor != null && cursor.moveToFirst()) {
-                int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
-                if (index >= 0) {
-                    return cursor.getString(index);
-                }
-            }
-        } catch (Exception ignored) {
-        } finally {
-            if (cursor != null) {
-                cursor.close();
-            }
-        }
-        return null;
-    }
-
-    private int unzipLibraryArchive(File archiveFile, String archiveName) throws IOException {
-        String baseDirName = makeSafeLibraryName(stripExtension(archiveName));
-        if (baseDirName.isEmpty()) {
-            baseDirName = "library";
-        }
-        File importRoot = resolveUniqueDirectory(new File(runtime.getUserLibrariesDir(), baseDirName));
-        if (!importRoot.exists() && !importRoot.mkdirs()) {
-            throw new IOException("Could not create " + importRoot.getAbsolutePath());
-        }
-
-        InputStream baseIn = new FileInputStream(archiveFile);
-        ZipInputStream zipIn = new ZipInputStream(new BufferedInputStream(baseIn));
-        byte[] buffer = new byte[8192];
-        int writtenFiles = 0;
-        String rootPath = importRoot.getCanonicalPath() + File.separator;
-
-        try {
-            ZipEntry entry;
-            while ((entry = zipIn.getNextEntry()) != null) {
-                String name = entry.getName();
-                if (name == null || name.trim().isEmpty()) {
-                    zipIn.closeEntry();
-                    continue;
-                }
-                name = name.replace('\\', '/');
-                while (name.startsWith("/")) {
-                    name = name.substring(1);
-                }
-                if (name.contains("..")) {
-                    zipIn.closeEntry();
-                    continue;
-                }
-
-                File outFile = new File(importRoot, name);
-                String outPath = outFile.getCanonicalPath();
-                if (!(outPath.equals(importRoot.getCanonicalPath()) || outPath.startsWith(rootPath))) {
-                    zipIn.closeEntry();
-                    continue;
-                }
-
-                if (entry.isDirectory()) {
-                    outFile.mkdirs();
-                    zipIn.closeEntry();
-                    continue;
-                }
-
-                File parent = outFile.getParentFile();
-                if (parent != null && !parent.exists() && !parent.mkdirs()) {
-                    throw new IOException("Could not create " + parent.getAbsolutePath());
-                }
-
-                FileOutputStream out = new FileOutputStream(outFile);
-                int read;
-                while ((read = zipIn.read(buffer)) != -1) {
-                    out.write(buffer, 0, read);
-                }
-                out.flush();
-                out.close();
-                writtenFiles++;
-                zipIn.closeEntry();
-            }
-        } finally {
-            zipIn.close();
-        }
-
-        if (writtenFiles <= 0) {
-            throw new IOException("Archive was empty");
-        }
-        return writtenFiles;
-    }
-
-    private void copyUriToFile(Uri uri, File target) throws IOException {
-        InputStream in = getContentResolver().openInputStream(uri);
-        if (in == null) {
-            throw new IOException("Could not open selected file");
-        }
-        File parent = target.getParentFile();
-        if (parent != null && !parent.exists() && !parent.mkdirs()) {
-            in.close();
-            throw new IOException("Could not create " + parent.getAbsolutePath());
-        }
-
-        FileOutputStream out = new FileOutputStream(target);
-        byte[] buffer = new byte[8192];
-        int read;
-        while ((read = in.read(buffer)) != -1) {
-            out.write(buffer, 0, read);
-        }
-        out.flush();
-        out.close();
-        in.close();
-    }
-
-    private File resolveUniqueFile(File file) {
-        if (!file.exists()) {
-            return file;
-        }
-        String name = file.getName();
-        String stem = stripExtension(name);
-        String ext = "";
-        int dot = name.lastIndexOf('.');
-        if (dot >= 0) {
-            ext = name.substring(dot);
-        }
-        int idx = 2;
-        while (true) {
-            File next = new File(file.getParentFile(), stem + "_" + idx + ext);
-            if (!next.exists()) {
-                return next;
-            }
-            idx++;
-        }
-    }
-
-    private File resolveUniqueDirectory(File dir) {
-        if (!dir.exists()) {
-            return dir;
-        }
-        String name = dir.getName();
-        int idx = 2;
-        while (true) {
-            File next = new File(dir.getParentFile(), name + "_" + idx);
-            if (!next.exists()) {
-                return next;
-            }
-            idx++;
-        }
-    }
-
-    private static String stripExtension(String name) {
-        if (name == null) {
-            return "";
-        }
-        int dot = name.lastIndexOf('.');
-        if (dot <= 0) {
-            return name;
-        }
-        return name.substring(0, dot);
-    }
-
-    private static String makeSafeLibraryName(String raw) {
-        if (raw == null) {
-            return "library";
-        }
-        String name = raw.trim().replace('\\', '_').replace('/', '_');
-        name = name.replaceAll("[^a-zA-Z0-9._-]", "_");
-        while (name.startsWith(".")) {
-            name = name.substring(1);
-        }
-        if (name.isEmpty()) {
-            return "library";
-        }
-        return name;
-    }
-
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -1601,7 +1361,7 @@ public class MainActivity extends Activity {
             @Override
             public void run() {
                 try {
-                    final String imported = importLibraryFromUri(uri);
+                    final String imported = libraryManager.importFromUri(uri);
                     mainHandler.post(new Runnable() {
                         @Override
                         public void run() {
@@ -1762,21 +1522,6 @@ public class MainActivity extends Activity {
         out.flush();
         out.close();
         in.close();
-    }
-
-    private static String readTextFile(File source) throws IOException {
-        FileInputStream in = new FileInputStream(source);
-        byte[] data = new byte[(int) source.length()];
-        int total = 0;
-        while (total < data.length) {
-            int read = in.read(data, total, data.length - total);
-            if (read < 0) {
-                break;
-            }
-            total += read;
-        }
-        in.close();
-        return new String(data, 0, total, StandardCharsets.UTF_8);
     }
 
     private static void copyFileToStream(File source, OutputStream out) throws IOException {
