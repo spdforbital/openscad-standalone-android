@@ -48,6 +48,7 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -62,7 +63,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class MainActivity extends Activity {
-    private static final String BUILD_MARKER = "2026-02-18_23:19_v10";
+    private static final String BUILD_MARKER = "2026-02-18_23:41_v11";
 
     private static final int C_BG = Color.parseColor("#0c111a");
     private static final int C_BG_2 = Color.parseColor("#111a27");
@@ -121,6 +122,8 @@ public class MainActivity extends Activity {
     private boolean rendering;
     private boolean wireframeMode;
     private boolean axisLinesVisible = true;
+    private boolean libraryPreviewMode;
+    private String activeLibraryPath;
 
     private LinearLayout sidebar;
     private LinearLayout consolePanel;
@@ -940,6 +943,8 @@ public class MainActivity extends Activity {
             String content = runtime.readProject(fileName);
             editor.setText(content);
             currentFile = fileName;
+            libraryPreviewMode = false;
+            activeLibraryPath = null;
             currentTab.setText(fileName);
             refreshFiles();
             setStatus("Opened " + fileName);
@@ -956,6 +961,8 @@ public class MainActivity extends Activity {
             public void onName(String fileName) {
                 editor.setText("// " + fileName + "\n\ncube(10);\n");
                 currentFile = fileName;
+                libraryPreviewMode = false;
+                activeLibraryPath = null;
                 currentTab.setText(fileName);
                 saveCurrentFile(false);
             }
@@ -963,6 +970,27 @@ public class MainActivity extends Activity {
     }
 
     private void saveCurrentFile(boolean silent) {
+        if (libraryPreviewMode) {
+            if (silent) {
+                return;
+            }
+            String suggestion = "library_preview.scad";
+            if (activeLibraryPath != null && !activeLibraryPath.trim().isEmpty()) {
+                suggestion = new File(activeLibraryPath).getName();
+            }
+            promptForFileName("Save library view as project", suggestion, new NameCallback() {
+                @Override
+                public void onName(String fileName) {
+                    currentFile = fileName;
+                    libraryPreviewMode = false;
+                    activeLibraryPath = null;
+                    currentTab.setText(fileName);
+                    saveCurrentFile(false);
+                }
+            });
+            return;
+        }
+
         if (currentFile == null || currentFile.trim().isEmpty()) {
             promptForFileName("Save file", "untitled.scad", new NameCallback() {
                 @Override
@@ -1009,7 +1037,11 @@ public class MainActivity extends Activity {
         setStatus("Rendering...");
         appendLog("Running OpenSCAD", C_ACCENT);
 
-        final String baseName = currentFile == null ? "model.scad" : currentFile;
+        String renderBase = currentFile;
+        if (libraryPreviewMode && activeLibraryPath != null && !activeLibraryPath.trim().isEmpty()) {
+            renderBase = new File(activeLibraryPath).getName();
+        }
+        final String baseName = renderBase == null ? "model.scad" : renderBase;
 
         executor.execute(new Runnable() {
             @Override
@@ -1223,13 +1255,15 @@ public class MainActivity extends Activity {
                 final String selected = libs.get(position);
                 new AlertDialog.Builder(MainActivity.this)
                     .setTitle(selected)
-                    .setItems(new String[] {"Insert use <...>;", "Insert include <...>;"},
+                    .setItems(new String[] {"View code in editor", "Insert use <...>;", "Insert include <...>;"},
                         new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialogInterface, int which) {
                                 if (which == 0) {
-                                    insertLibraryDirective(selected, false);
+                                    viewLibraryCodeInEditor(selected);
                                 } else if (which == 1) {
+                                    insertLibraryDirective(selected, false);
+                                } else if (which == 2) {
                                     insertLibraryDirective(selected, true);
                                 }
                             }
@@ -1240,6 +1274,31 @@ public class MainActivity extends Activity {
         });
 
         dialog.show();
+    }
+
+    private void viewLibraryCodeInEditor(String libraryPath) {
+        if (libraryPath == null || libraryPath.trim().isEmpty()) {
+            return;
+        }
+        File file = new File(runtime.getUserLibrariesDir(), libraryPath);
+        if (!file.exists() || !file.isFile()) {
+            setStatus("Library missing");
+            appendLog("Library file not found: " + libraryPath, C_RED);
+            return;
+        }
+
+        try {
+            String code = readTextFile(file);
+            editor.setText(code);
+            currentTab.setText("LIB: " + libraryPath);
+            libraryPreviewMode = true;
+            activeLibraryPath = libraryPath;
+            setStatus("Viewing library");
+            appendLog("Viewing library code: " + libraryPath, C_TEXT_2);
+        } catch (IOException e) {
+            setStatus("Library read failed");
+            appendLog("Could not open library: " + e.getMessage(), C_RED);
+        }
     }
 
     private void launchLibraryPicker() {
@@ -1703,6 +1762,21 @@ public class MainActivity extends Activity {
         out.flush();
         out.close();
         in.close();
+    }
+
+    private static String readTextFile(File source) throws IOException {
+        FileInputStream in = new FileInputStream(source);
+        byte[] data = new byte[(int) source.length()];
+        int total = 0;
+        while (total < data.length) {
+            int read = in.read(data, total, data.length - total);
+            if (read < 0) {
+                break;
+            }
+            total += read;
+        }
+        in.close();
+        return new String(data, 0, total, StandardCharsets.UTF_8);
     }
 
     private static void copyFileToStream(File source, OutputStream out) throws IOException {
