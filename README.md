@@ -20,7 +20,7 @@ Output:
 
 ## Notes
 
-- Runtime assets are generated at build time f
+- Runtime assets are generated at build time 
 - The app writes projects to internal app storage.
 - STL export writes to app external files under Downloads.
 - This specific OpenSCAD build crashes on PNG output, so preview is rendered from STL in a native OpenGL viewer instead of PNG images.
