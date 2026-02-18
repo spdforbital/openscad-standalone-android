@@ -51,7 +51,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
-    private static final String BUILD_MARKER = "2026-02-18_20:30_v6";
+    private static final String BUILD_MARKER = "2026-02-18_20:42_v7";
 
     private static final int C_BG = Color.parseColor("#0c111a");
     private static final int C_BG_2 = Color.parseColor("#111a27");
@@ -471,29 +471,28 @@ public class MainActivity extends Activity {
         container.addView(previewSurface, new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        LinearLayout axisPad = new LinearLayout(this);
-        axisPad.setOrientation(LinearLayout.VERTICAL);
-        axisPad.setPadding(dp(6), dp(6), dp(6), dp(6));
-        axisPad.setBackground(makePanelGradient(C_TOOLBAR, C_SURFACE, 10, C_BORDER, true));
+        FrameLayout axisPad = new FrameLayout(this);
+        axisPad.setPadding(dp(10), dp(10), dp(10), dp(10));
+        axisPad.setBackground(makePanelGradient(0xCC0f1724, 0xCC152131, 22, C_BORDER, true));
 
-        LinearLayout axisRowTop = new LinearLayout(this);
-        axisRowTop.setOrientation(LinearLayout.HORIZONTAL);
-        axisRowTop.addView(makeAxisButton("ISO", StlGlSurfaceView.ViewPreset.ISO));
-        axisRowTop.addView(makeAxisButton("+X", StlGlSurfaceView.ViewPreset.POS_X));
-        axisRowTop.addView(makeAxisButton("-X", StlGlSurfaceView.ViewPreset.NEG_X));
-        axisPad.addView(axisRowTop);
+        int gizmoSize = dp(110);
+        FrameLayout.LayoutParams gizmoParams = new FrameLayout.LayoutParams(
+            gizmoSize,
+            gizmoSize
+        );
+        axisPad.setLayoutParams(gizmoParams);
 
-        LinearLayout axisRowBottom = new LinearLayout(this);
-        axisRowBottom.setOrientation(LinearLayout.HORIZONTAL);
-        axisRowBottom.addView(makeAxisButton("+Y", StlGlSurfaceView.ViewPreset.POS_Y));
-        axisRowBottom.addView(makeAxisButton("-Y", StlGlSurfaceView.ViewPreset.NEG_Y));
-        axisRowBottom.addView(makeAxisButton("+Z", StlGlSurfaceView.ViewPreset.POS_Z));
-        axisRowBottom.addView(makeAxisButton("-Z", StlGlSurfaceView.ViewPreset.NEG_Z));
-        axisPad.addView(axisRowBottom);
+        axisPad.addView(makeGizmoButton("ISO", C_ACCENT, C_BG, C_ACCENT_2, StlGlSurfaceView.ViewPreset.ISO, 0, 0));
+        axisPad.addView(makeGizmoButton("X", 0xFFFF6B7A, C_BG, 0xFF3D1016, StlGlSurfaceView.ViewPreset.POS_X, 1, 0));
+        axisPad.addView(makeGizmoButton("x", 0xFF5D2A33, C_BG, 0xFFFFD3D9, StlGlSurfaceView.ViewPreset.NEG_X, -1, 0));
+        axisPad.addView(makeGizmoButton("Y", 0xFF7DE4B2, C_BG, 0xFF123726, StlGlSurfaceView.ViewPreset.POS_Y, 0, -1));
+        axisPad.addView(makeGizmoButton("y", 0xFF275543, C_BG, 0xFFC9F5E2, StlGlSurfaceView.ViewPreset.NEG_Y, 0, 1));
+        axisPad.addView(makeGizmoButton("Z", 0xFF72A8FF, C_BG, 0xFF112947, StlGlSurfaceView.ViewPreset.POS_Z, 1, -1));
+        axisPad.addView(makeGizmoButton("z", 0xFF2A4064, C_BG, 0xFFD3E4FF, StlGlSurfaceView.ViewPreset.NEG_Z, -1, 1));
 
         FrameLayout.LayoutParams axisPadParams = new FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
+            gizmoSize,
+            gizmoSize,
             Gravity.TOP | Gravity.END
         );
         axisPadParams.setMargins(dp(8), dp(8), dp(8), dp(8));
@@ -600,16 +599,32 @@ public class MainActivity extends Activity {
         return button;
     }
 
-    private Button makeAxisButton(String text, final StlGlSurfaceView.ViewPreset preset) {
+    private View makeGizmoButton(
+        String text,
+        int fillColor,
+        int strokeColor,
+        int textColor,
+        final StlGlSurfaceView.ViewPreset preset,
+        int gx,
+        int gy
+    ) {
         Button button = new Button(this);
         button.setText(text);
         button.setAllCaps(false);
-        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+        boolean iso = "ISO".equals(text);
+        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, iso ? 9 : 10);
         button.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-        button.setTextColor(C_TEXT);
-        button.setBackground(makePanelGradient(C_SURFACE_2, C_SURFACE, 8, C_BORDER, false));
-        button.setPadding(dp(8), dp(2), dp(8), dp(2));
-        button.setMinHeight(dp(28));
+        button.setTextColor(textColor);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.OVAL);
+        bg.setColor(fillColor);
+        bg.setStroke(dp(1), strokeColor);
+        button.setBackground(bg);
+        button.setPadding(0, 0, 0, 0);
+        button.setMinWidth(0);
+        button.setMinimumWidth(0);
+        button.setMinHeight(0);
+        button.setMinimumHeight(0);
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -619,11 +634,15 @@ public class MainActivity extends Activity {
             }
         });
 
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        params.setMargins(dp(2), dp(2), dp(2), dp(2));
+        int size = iso ? dp(30) : dp(24);
+        int center = dp(55);
+        int step = dp(23);
+        int left = center - (size / 2) + (gx * step);
+        int top = center - (size / 2) + (gy * step);
+
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(size, size);
+        params.leftMargin = left;
+        params.topMargin = top;
         button.setLayoutParams(params);
         return button;
     }
@@ -681,16 +700,43 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "No files", Toast.LENGTH_SHORT).show();
             return;
         }
-        final String[] items = fileNames.toArray(new String[0]);
-        new AlertDialog.Builder(this)
-            .setTitle("Open file")
-            .setItems(items, new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialogInterface, int i) {
-                    openFile(items[i]);
+
+        final ListView pickerList = new ListView(this);
+        final ArrayAdapter<String> pickerAdapter =
+            new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, new ArrayList<String>(fileNames));
+        pickerList.setAdapter(pickerAdapter);
+
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+            .setTitle("Open file (long-press to delete)")
+            .setView(pickerList)
+            .setNegativeButton("Close", null)
+            .create();
+
+        pickerList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                if (position < 0 || position >= pickerAdapter.getCount()) {
+                    return;
                 }
-            })
-            .show();
+                openFile(pickerAdapter.getItem(position));
+                dialog.dismiss();
+            }
+        });
+
+        pickerList.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+                if (position < 0 || position >= pickerAdapter.getCount()) {
+                    return true;
+                }
+                String fileName = pickerAdapter.getItem(position);
+                dialog.dismiss();
+                promptDeleteFile(fileName);
+                return true;
+            }
+        });
+
+        dialog.show();
     }
 
     private void promptDeleteFile(final String fileName) {
