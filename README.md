@@ -23,5 +23,5 @@ Output:
 - Runtime assets are generated at build time 
 - The app writes projects to internal app storage.
 - STL export writes to app external files under Downloads.
-- This specific OpenSCAD build crashes on PNG output, so preview is rendered from STL in a native OpenGL viewer instead of PNG images.
+- This specific OpenSCAD build crashes on PNG output, so preview is rendered from STL in a software renderer viewer from java Canvas (opengl viewing is finicky on different devices) instead of PNG images.
 - Viewer controls: one-finger rotate, two-finger pan/zoom, plus shaded/wireframe toggle.
