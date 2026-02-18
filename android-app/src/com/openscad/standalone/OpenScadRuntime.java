@@ -80,6 +80,7 @@ class OpenScadRuntime {
     private final File runtimeFontConfig;
     private final File runtimeOpenScadPath;
     private final File userLibrariesDir;
+    private final File userLibrarySourcesDir;
     private final File projectsDir;
     private final File rendersDir;
 
@@ -94,10 +95,12 @@ class OpenScadRuntime {
         this.runtimeFontConfig = new File(runtimeRoot, "etc/fonts");
         this.runtimeOpenScadPath = new File(runtimeRoot, "share/openscad/libraries");
         this.userLibrariesDir = new File(appContext.getFilesDir(), "libraries");
+        this.userLibrarySourcesDir = new File(appContext.getFilesDir(), "library_sources");
         this.projectsDir = new File(appContext.getFilesDir(), "projects");
         this.rendersDir = new File(appContext.getFilesDir(), "renders");
 
         this.userLibrariesDir.mkdirs();
+        this.userLibrarySourcesDir.mkdirs();
         this.projectsDir.mkdirs();
         this.rendersDir.mkdirs();
     }
@@ -112,6 +115,10 @@ class OpenScadRuntime {
 
     File getUserLibrariesDir() {
         return userLibrariesDir;
+    }
+
+    File getUserLibrarySourcesDir() {
+        return userLibrarySourcesDir;
     }
 
     synchronized void prepareRuntime() throws IOException {

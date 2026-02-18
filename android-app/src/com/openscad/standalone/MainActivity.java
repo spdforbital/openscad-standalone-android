@@ -62,7 +62,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class MainActivity extends Activity {
-    private static final String BUILD_MARKER = "2026-02-18_22:18_v8";
+    private static final String BUILD_MARKER = "2026-02-18_23:19_v10";
 
     private static final int C_BG = Color.parseColor("#0c111a");
     private static final int C_BG_2 = Color.parseColor("#111a27");
@@ -120,6 +120,7 @@ public class MainActivity extends Activity {
     private boolean compactLayout;
     private boolean rendering;
     private boolean wireframeMode;
+    private boolean axisLinesVisible = true;
 
     private LinearLayout sidebar;
     private LinearLayout consolePanel;
@@ -132,6 +133,7 @@ public class MainActivity extends Activity {
     private ArrayAdapter<String> fileAdapter;
     private Button renderButton;
     private Button viewerModeButton;
+    private Button axisLinesButton;
     private TextView previewHint;
     private StlGlSurfaceView previewSurface;
 
@@ -468,6 +470,16 @@ public class MainActivity extends Activity {
         });
         header.addView(viewerModeButton);
 
+        axisLinesButton = makeToolbarButton("Axes On", false);
+        axisLinesButton.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        axisLinesButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                toggleAxisLines();
+            }
+        });
+        header.addView(axisLinesButton);
+
         Button resetButton = makeToolbarButton("Reset", false);
         resetButton.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         resetButton.setOnClickListener(new View.OnClickListener() {
@@ -488,6 +500,7 @@ public class MainActivity extends Activity {
         previewSurface = new StlGlSurfaceView(this);
         previewSurface.setBackgroundColor(C_BG_2);
         previewSurface.setWireframeMode(wireframeMode);
+        previewSurface.setAxisLinesVisible(axisLinesVisible);
         container.addView(previewSurface, new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
@@ -1073,8 +1086,38 @@ public class MainActivity extends Activity {
         }
 
         String stem = currentFile == null ? "model" : currentFile.replace(".scad", "");
-        String fileName = stem + "_" + System.currentTimeMillis() + ".stl";
+        long ts = System.currentTimeMillis();
+        final String suggestion = stem + "_" + ts + ".stl";
+        final EditText input = new EditText(this);
+        input.setText(suggestion);
+        int extPos = suggestion.toLowerCase(Locale.US).lastIndexOf(".stl");
+        input.setSelection(0, extPos > 0 ? extPos : suggestion.length());
 
+        new AlertDialog.Builder(this)
+            .setTitle("Export STL As")
+            .setView(input)
+            .setPositiveButton("Export", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int which) {
+                    String name = input.getText() == null ? "" : input.getText().toString().trim();
+                    if (name.isEmpty()) {
+                        setStatus("Export cancelled");
+                        appendLog("Export cancelled: empty file name", C_YELLOW);
+                        return;
+                    }
+
+                    String safeName = name.replace('\\', '_').replace('/', '_');
+                    if (!safeName.toLowerCase(Locale.US).endsWith(".stl")) {
+                        safeName = safeName + ".stl";
+                    }
+                    doExportWithFileName(safeName);
+                }
+            })
+            .setNegativeButton("Cancel", null)
+            .show();
+    }
+
+    private void doExportWithFileName(String fileName) {
         try {
             Uri outUri = exportToPublicDocuments(lastRenderedStl, fileName);
             setStatus("Exported");
@@ -1090,11 +1133,13 @@ public class MainActivity extends Activity {
         final List<String> libs = listLibraryScadFiles();
         final List<String> options = new ArrayList<String>();
         options.add("Import .scad/.zip");
+        options.add("Browse libraries");
         if (!libs.isEmpty()) {
             options.add("Insert use <...>;");
             options.add("Insert include <...>;");
         }
         options.add("Show library folder");
+        options.add("Show source-copy folder");
 
         final String[] labels = options.toArray(new String[0]);
         new AlertDialog.Builder(this)
@@ -1108,6 +1153,12 @@ public class MainActivity extends Activity {
                     }
 
                     int next = 1;
+                    if (which == next) {
+                        showLibraryBrowserDialog();
+                        return;
+                    }
+                    next++;
+
                     if (!libs.isEmpty()) {
                         if (which == next) {
                             showInsertLibraryDialog(libs, false);
@@ -1125,11 +1176,70 @@ public class MainActivity extends Activity {
                         String path = runtime.getUserLibrariesDir().getAbsolutePath();
                         appendLog("Libraries folder: " + path, C_TEXT_2);
                         Toast.makeText(MainActivity.this, path, Toast.LENGTH_LONG).show();
+                        return;
+                    }
+
+                    next++;
+                    if (which == next) {
+                        String path = runtime.getUserLibrarySourcesDir().getAbsolutePath();
+                        appendLog("Library source-copy folder: " + path, C_TEXT_2);
+                        Toast.makeText(MainActivity.this, path, Toast.LENGTH_LONG).show();
                     }
                 }
             })
             .setNegativeButton("Close", null)
             .show();
+    }
+
+    private void showLibraryBrowserDialog() {
+        final List<String> libs = listLibraryScadFiles();
+        if (libs.isEmpty()) {
+            Toast.makeText(this, "No imported .scad libraries yet", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        final ListView listView = new ListView(this);
+        listView.setDividerHeight(0);
+        listView.setBackgroundColor(Color.TRANSPARENT);
+        final ArrayAdapter<String> adapter = new ArrayAdapter<String>(
+            this,
+            android.R.layout.simple_list_item_1,
+            libs
+        );
+        listView.setAdapter(adapter);
+
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+            .setTitle("Imported Libraries (" + libs.size() + ")")
+            .setView(listView)
+            .setNegativeButton("Close", null)
+            .create();
+
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                if (position < 0 || position >= libs.size()) {
+                    return;
+                }
+                final String selected = libs.get(position);
+                new AlertDialog.Builder(MainActivity.this)
+                    .setTitle(selected)
+                    .setItems(new String[] {"Insert use <...>;", "Insert include <...>;"},
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialogInterface, int which) {
+                                if (which == 0) {
+                                    insertLibraryDirective(selected, false);
+                                } else if (which == 1) {
+                                    insertLibraryDirective(selected, true);
+                                }
+                            }
+                        })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+            }
+        });
+
+        dialog.show();
     }
 
     private void launchLibraryPicker() {
@@ -1216,17 +1326,20 @@ public class MainActivity extends Activity {
 
         String safeName = makeSafeLibraryName(displayName);
         String lower = safeName.toLowerCase(Locale.US);
+        File sourceCopy = resolveUniqueFile(new File(runtime.getUserLibrarySourcesDir(), safeName));
+        copyUriToFile(uri, sourceCopy);
+
         if (lower.endsWith(".zip")) {
-            int count = unzipLibraryArchive(uri, safeName);
-            return safeName + " (" + count + " files)";
+            int count = unzipLibraryArchive(sourceCopy, safeName);
+            return safeName + " copied + extracted (" + count + " files)";
         }
 
         if (!lower.endsWith(".scad")) {
             safeName = safeName + ".scad";
         }
         File target = resolveUniqueFile(new File(runtime.getUserLibrariesDir(), safeName));
-        copyUriToFile(uri, target);
-        return target.getName();
+        copyFile(sourceCopy, target);
+        return target.getName() + " copied";
     }
 
     private String queryDisplayName(Uri uri) {
@@ -1248,7 +1361,7 @@ public class MainActivity extends Activity {
         return null;
     }
 
-    private int unzipLibraryArchive(Uri uri, String archiveName) throws IOException {
+    private int unzipLibraryArchive(File archiveFile, String archiveName) throws IOException {
         String baseDirName = makeSafeLibraryName(stripExtension(archiveName));
         if (baseDirName.isEmpty()) {
             baseDirName = "library";
@@ -1258,10 +1371,7 @@ public class MainActivity extends Activity {
             throw new IOException("Could not create " + importRoot.getAbsolutePath());
         }
 
-        InputStream baseIn = getContentResolver().openInputStream(uri);
-        if (baseIn == null) {
-            throw new IOException("Could not open selected archive");
-        }
+        InputStream baseIn = new FileInputStream(archiveFile);
         ZipInputStream zipIn = new ZipInputStream(new BufferedInputStream(baseIn));
         byte[] buffer = new byte[8192];
         int writtenFiles = 0;
@@ -1506,6 +1616,17 @@ public class MainActivity extends Activity {
             viewerModeButton.setText(wireframeMode ? "Wireframe" : "Shaded");
         }
         appendLog("Viewer mode: " + (wireframeMode ? "wireframe" : "shaded"), C_TEXT_2);
+    }
+
+    private void toggleAxisLines() {
+        axisLinesVisible = !axisLinesVisible;
+        if (previewSurface != null) {
+            previewSurface.setAxisLinesVisible(axisLinesVisible);
+        }
+        if (axisLinesButton != null) {
+            axisLinesButton.setText(axisLinesVisible ? "Axes On" : "Axes Off");
+        }
+        appendLog("RGB axes: " + (axisLinesVisible ? "on" : "off"), C_TEXT_2);
     }
 
     private void toggleConsole() {

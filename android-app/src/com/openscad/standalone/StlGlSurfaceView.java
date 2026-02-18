@@ -35,6 +35,7 @@ class StlGlSurfaceView extends View {
 
     private StlModel model;
     private boolean wireframeMode;
+    private boolean axisLinesVisible = true;
 
     private float yawDeg = 45f;
     private float pitchDeg = 25f;
@@ -128,6 +129,11 @@ class StlGlSurfaceView extends View {
         invalidate();
     }
 
+    void setAxisLinesVisible(boolean visible) {
+        axisLinesVisible = visible;
+        invalidate();
+    }
+
     void setViewPreset(ViewPreset preset) {
         panX = 0f;
         panY = 0f;
@@ -184,7 +190,9 @@ class StlGlSurfaceView extends View {
             return;
         }
 
-        drawAxes(canvas, w, h);
+        if (axisLinesVisible) {
+            drawAxes(canvas, w, h);
+        }
         if (model == null || model.vertexCount <= 0) {
             return;
         }
@@ -408,9 +416,16 @@ class StlGlSurfaceView extends View {
                     return true;
                 }
 
-                if (event.getPointerCount() == 1 && !scaleDetector.isInProgress()) {
+                if (event.getPointerCount() == 1) {
                     float x = event.getX();
                     float y = event.getY();
+
+                    if (scaleDetector.isInProgress()) {
+                        lastX = x;
+                        lastY = y;
+                        return true;
+                    }
+
                     float dx = x - lastX;
                     float dy = y - lastY;
                     lastX = x;
@@ -427,6 +442,17 @@ class StlGlSurfaceView extends View {
                     invalidate();
                     return true;
                 }
+                return true;
+
+            case MotionEvent.ACTION_POINTER_UP:
+                int liftedIndex = event.getActionIndex();
+                int remainingIndex = firstRemainingPointerIndex(event, liftedIndex);
+                if (remainingIndex >= 0) {
+                    lastX = event.getX(remainingIndex);
+                    lastY = event.getY(remainingIndex);
+                }
+                lastMidX = midpointX(event);
+                lastMidY = midpointY(event);
                 return true;
 
             case MotionEvent.ACTION_UP:
@@ -531,6 +557,15 @@ class StlGlSurfaceView extends View {
             return event.getY();
         }
         return (event.getY(0) + event.getY(1)) * 0.5f;
+    }
+
+    private static int firstRemainingPointerIndex(MotionEvent event, int liftedIndex) {
+        for (int i = 0; i < event.getPointerCount(); i++) {
+            if (i != liftedIndex) {
+                return i;
+            }
+        }
+        return -1;
     }
 
 }
