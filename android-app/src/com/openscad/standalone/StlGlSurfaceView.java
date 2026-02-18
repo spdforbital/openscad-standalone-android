@@ -11,6 +11,15 @@ import android.view.ScaleGestureDetector;
 import android.view.View;
 
 class StlGlSurfaceView extends View {
+    enum ViewPreset {
+        ISO,
+        POS_X,
+        NEG_X,
+        POS_Y,
+        NEG_Y,
+        POS_Z,
+        NEG_Z
+    }
 
     private static final float MIN_ZOOM = 0.25f;
     private static final float MAX_ZOOM = 6.0f;
@@ -116,6 +125,43 @@ class StlGlSurfaceView extends View {
 
     void setWireframeMode(boolean wireframe) {
         wireframeMode = wireframe;
+        invalidate();
+    }
+
+    void setViewPreset(ViewPreset preset) {
+        panX = 0f;
+        panY = 0f;
+        switch (preset) {
+            case POS_X:
+                yawDeg = 90f;
+                pitchDeg = 0f;
+                break;
+            case NEG_X:
+                yawDeg = -90f;
+                pitchDeg = 0f;
+                break;
+            case POS_Y:
+                yawDeg = 0f;
+                pitchDeg = 89f;
+                break;
+            case NEG_Y:
+                yawDeg = 0f;
+                pitchDeg = -89f;
+                break;
+            case POS_Z:
+                yawDeg = 0f;
+                pitchDeg = 0f;
+                break;
+            case NEG_Z:
+                yawDeg = 180f;
+                pitchDeg = 0f;
+                break;
+            case ISO:
+            default:
+                yawDeg = 45f;
+                pitchDeg = 25f;
+                break;
+        }
         invalidate();
     }
 

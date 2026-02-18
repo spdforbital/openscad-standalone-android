@@ -379,4 +379,9 @@ class OpenScadRuntime {
         File file = new File(projectsDir, fileName);
         writeText(file, content);
     }
+
+    boolean deleteProject(String fileName) {
+        File file = new File(projectsDir, fileName);
+        return !file.exists() || file.delete();
+    }
 }

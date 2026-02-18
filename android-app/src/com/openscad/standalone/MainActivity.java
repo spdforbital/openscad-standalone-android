@@ -2,14 +2,18 @@ package com.openscad.standalone;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ContentValues;
 import android.content.DialogInterface;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.MediaStore;
 import android.text.InputType;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
@@ -35,6 +39,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,7 +51,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
-    private static final String BUILD_MARKER = "2026-02-18_20:20_v5";
+    private static final String BUILD_MARKER = "2026-02-18_20:30_v6";
 
     private static final int C_BG = Color.parseColor("#0c111a");
     private static final int C_BG_2 = Color.parseColor("#111a27");
@@ -347,6 +352,16 @@ public class MainActivity extends Activity {
                 openFile(fileNames.get(i));
             }
         });
+        fileList.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+                if (position < 0 || position >= fileNames.size()) {
+                    return true;
+                }
+                promptDeleteFile(fileNames.get(position));
+                return true;
+            }
+        });
         side.addView(fileList, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
@@ -456,8 +471,36 @@ public class MainActivity extends Activity {
         container.addView(previewSurface, new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
+        LinearLayout axisPad = new LinearLayout(this);
+        axisPad.setOrientation(LinearLayout.VERTICAL);
+        axisPad.setPadding(dp(6), dp(6), dp(6), dp(6));
+        axisPad.setBackground(makePanelGradient(C_TOOLBAR, C_SURFACE, 10, C_BORDER, true));
+
+        LinearLayout axisRowTop = new LinearLayout(this);
+        axisRowTop.setOrientation(LinearLayout.HORIZONTAL);
+        axisRowTop.addView(makeAxisButton("ISO", StlGlSurfaceView.ViewPreset.ISO));
+        axisRowTop.addView(makeAxisButton("+X", StlGlSurfaceView.ViewPreset.POS_X));
+        axisRowTop.addView(makeAxisButton("-X", StlGlSurfaceView.ViewPreset.NEG_X));
+        axisPad.addView(axisRowTop);
+
+        LinearLayout axisRowBottom = new LinearLayout(this);
+        axisRowBottom.setOrientation(LinearLayout.HORIZONTAL);
+        axisRowBottom.addView(makeAxisButton("+Y", StlGlSurfaceView.ViewPreset.POS_Y));
+        axisRowBottom.addView(makeAxisButton("-Y", StlGlSurfaceView.ViewPreset.NEG_Y));
+        axisRowBottom.addView(makeAxisButton("+Z", StlGlSurfaceView.ViewPreset.POS_Z));
+        axisRowBottom.addView(makeAxisButton("-Z", StlGlSurfaceView.ViewPreset.NEG_Z));
+        axisPad.addView(axisRowBottom);
+
+        FrameLayout.LayoutParams axisPadParams = new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.TOP | Gravity.END
+        );
+        axisPadParams.setMargins(dp(8), dp(8), dp(8), dp(8));
+        container.addView(axisPad, axisPadParams);
+
         previewHint = new TextView(this);
-        previewHint.setText("Debug cube should be visible now.\nTap Render to load STL.");
+        previewHint.setText("Tap Render to load STL\n1-finger rotate, 2-finger pan/zoom");
         previewHint.setTextColor(C_TEXT_2);
         previewHint.setGravity(Gravity.CENTER);
         previewHint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
@@ -557,6 +600,34 @@ public class MainActivity extends Activity {
         return button;
     }
 
+    private Button makeAxisButton(String text, final StlGlSurfaceView.ViewPreset preset) {
+        Button button = new Button(this);
+        button.setText(text);
+        button.setAllCaps(false);
+        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+        button.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        button.setTextColor(C_TEXT);
+        button.setBackground(makePanelGradient(C_SURFACE_2, C_SURFACE, 8, C_BORDER, false));
+        button.setPadding(dp(8), dp(2), dp(8), dp(2));
+        button.setMinHeight(dp(28));
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (previewSurface != null) {
+                    previewSurface.setViewPreset(preset);
+                }
+            }
+        });
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(dp(2), dp(2), dp(2), dp(2));
+        button.setLayoutParams(params);
+        return button;
+    }
+
     private void ensureDefaultProject() {
         File example = new File(runtime.getProjectsDir(), DEFAULT_FILE);
         if (!example.exists()) {
@@ -617,6 +688,49 @@ public class MainActivity extends Activity {
                 @Override
                 public void onClick(DialogInterface dialogInterface, int i) {
                     openFile(items[i]);
+                }
+            })
+            .show();
+    }
+
+    private void promptDeleteFile(final String fileName) {
+        new AlertDialog.Builder(this)
+            .setTitle("Delete file?")
+            .setMessage(fileName)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Delete", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int which) {
+                    boolean deleted = runtime.deleteProject(fileName);
+                    if (!deleted) {
+                        setStatus("Delete failed");
+                        appendLog("Could not delete " + fileName, C_RED);
+                        return;
+                    }
+
+                    appendLog("Deleted " + fileName, C_YELLOW);
+                    boolean removedCurrent = fileName.equals(currentFile);
+                    refreshFiles();
+
+                    if (!removedCurrent) {
+                        return;
+                    }
+
+                    if (!fileNames.isEmpty()) {
+                        openFile(fileNames.get(0));
+                        return;
+                    }
+
+                    try {
+                        runtime.writeProject(DEFAULT_FILE, DEFAULT_CODE);
+                        refreshFiles();
+                        openFile(DEFAULT_FILE);
+                    } catch (IOException e) {
+                        editor.setText(DEFAULT_CODE);
+                        currentFile = DEFAULT_FILE;
+                        currentTab.setText(DEFAULT_FILE);
+                        setStatus("No files");
+                    }
                 }
             })
             .show();
@@ -794,27 +908,61 @@ public class MainActivity extends Activity {
             return;
         }
 
-        File downloads = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
-        if (downloads == null) {
-            downloads = new File(getFilesDir(), "exports");
-        }
-        File exportDir = new File(downloads, "OpenSCAD");
-        if (!exportDir.exists()) {
-            exportDir.mkdirs();
-        }
-
         String stem = currentFile == null ? "model" : currentFile.replace(".scad", "");
-        File out = new File(exportDir, stem + "_" + System.currentTimeMillis() + ".stl");
+        String fileName = stem + "_" + System.currentTimeMillis() + ".stl";
 
         try {
-            copyFile(lastRenderedStl, out);
+            Uri outUri = exportToPublicDocuments(lastRenderedStl, fileName);
             setStatus("Exported");
-            appendLog("Exported STL: " + out.getAbsolutePath(), C_GREEN);
-            Toast.makeText(this, "Saved to " + out.getAbsolutePath(), Toast.LENGTH_LONG).show();
+            appendLog("Exported STL to Documents/OpenSCAD: " + fileName, C_GREEN);
+            Toast.makeText(this, "Saved to Documents/OpenSCAD/" + fileName, Toast.LENGTH_LONG).show();
         } catch (IOException e) {
             setStatus("Export failed");
             appendLog("Export failed: " + e.getMessage(), C_RED);
         }
+    }
+
+    private Uri exportToPublicDocuments(File source, String fileName) throws IOException {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+            values.put(MediaStore.MediaColumns.MIME_TYPE, "model/stl");
+            values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS + "/OpenSCAD");
+            values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+
+            Uri collection = MediaStore.Files.getContentUri("external");
+            Uri item = getContentResolver().insert(collection, values);
+            if (item == null) {
+                throw new IOException("Could not create export entry");
+            }
+
+            try {
+                OutputStream out = getContentResolver().openOutputStream(item, "w");
+                if (out == null) {
+                    getContentResolver().delete(item, null, null);
+                    throw new IOException("Could not open output stream");
+                }
+                copyFileToStream(source, out);
+                out.close();
+            } catch (IOException e) {
+                getContentResolver().delete(item, null, null);
+                throw e;
+            }
+
+            ContentValues done = new ContentValues();
+            done.put(MediaStore.MediaColumns.IS_PENDING, 0);
+            getContentResolver().update(item, done, null, null);
+            return item;
+        }
+
+        File docs = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
+        File exportDir = new File(docs, "OpenSCAD");
+        if (!exportDir.exists() && !exportDir.mkdirs()) {
+            throw new IOException("Could not create Documents/OpenSCAD");
+        }
+        File outFile = new File(exportDir, fileName);
+        copyFile(source, outFile);
+        return Uri.fromFile(outFile);
     }
 
     private void toggleViewerMode() {
@@ -901,6 +1049,17 @@ public class MainActivity extends Activity {
         }
         out.flush();
         out.close();
+        in.close();
+    }
+
+    private static void copyFileToStream(File source, OutputStream out) throws IOException {
+        FileInputStream in = new FileInputStream(source);
+        byte[] buffer = new byte[8192];
+        int read;
+        while ((read = in.read(buffer)) != -1) {
+            out.write(buffer, 0, read);
+        }
+        out.flush();
         in.close();
     }
 
