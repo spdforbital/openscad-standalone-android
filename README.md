@@ -1,0 +1,28 @@
+# OpenSCAD Standalone Android
+
+This is a separate project from `openscad-app`.
+
+It builds a self-contained APK that:
+
+- Uses a native Android UI (no WebView server dependency)
+- Runs OpenSCAD directly inside the app process
+- Bundles the OpenSCAD binary, required shared libraries, and OpenSCAD data files into APK assets
+
+## Build
+
+```bash
+cd ~/openscad-standalone-android
+./build-apk.sh
+```
+
+Output:
+
+- `~/openscad-standalone-android/OpenSCAD-Standalone.apk`
+
+## Notes
+
+- Runtime assets are generated at build time from your Termux OpenSCAD install.
+- The app writes projects to internal app storage.
+- STL export writes to app external files under Downloads.
+- This specific OpenSCAD build crashes on PNG output, so preview is rendered from STL in a native OpenGL viewer instead of PNG images.
+- Viewer controls: one-finger rotate, two-finger pan/zoom, plus shaded/wireframe toggle.
