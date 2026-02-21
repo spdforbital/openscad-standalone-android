@@ -152,9 +152,9 @@ class OpenScadRuntime {
             throw new IOException("Could not mark openscad binary as executable");
         }
 
-        FileOutputStream fos = new FileOutputStream(marker);
-        fos.write(Long.toString(System.currentTimeMillis()).getBytes(StandardCharsets.UTF_8));
-        fos.close();
+        try (FileOutputStream fos = new FileOutputStream(marker)) {
+            fos.write(Long.toString(System.currentTimeMillis()).getBytes(StandardCharsets.UTF_8));
+        }
 
         prepared = true;
     }
@@ -184,10 +184,12 @@ class OpenScadRuntime {
 
             ExecResult stl = runOpenScad(stlArgs, 180);
             if (stl.timedOut) {
-                return new RenderResult(false, null, null, stl.output, "Render timed out", System.currentTimeMillis() - startMs);
+                return new RenderResult(false, null, null, stl.output, "Render timed out",
+                        System.currentTimeMillis() - startMs);
             }
             if (stl.exitCode != 0 || !stlFile.exists()) {
-                String err = stl.output == null || stl.output.trim().isEmpty() ? "OpenSCAD failed to produce STL" : stl.output;
+                String err = stl.output == null || stl.output.trim().isEmpty() ? "OpenSCAD failed to produce STL"
+                        : stl.output;
                 return new RenderResult(false, null, null, stl.output, err, System.currentTimeMillis() - startMs);
             }
 
@@ -232,9 +234,9 @@ class OpenScadRuntime {
                 return runCommand(linkerCmd, timeoutSeconds);
             } catch (IOException linkerError) {
                 throw new IOException(
-                    "OpenSCAD launch failed. Direct exec denied and linker fallback failed: " + linkerError.getMessage(),
-                    linkerError
-                );
+                        "OpenSCAD launch failed. Direct exec denied and linker fallback failed: "
+                                + linkerError.getMessage(),
+                        linkerError);
             }
         }
     }
@@ -245,7 +247,8 @@ class OpenScadRuntime {
         pb.redirectErrorStream(true);
 
         Map<String, String> env = pb.environment();
-        env.put("LD_LIBRARY_PATH", runtimeLib.getAbsolutePath() + ":" + appContext.getApplicationInfo().nativeLibraryDir);
+        env.put("LD_LIBRARY_PATH",
+                runtimeLib.getAbsolutePath() + ":" + appContext.getApplicationInfo().nativeLibraryDir);
         env.put("HOME", runtimeHome.getAbsolutePath());
         String openScadPath = runtimeOpenScadPath.getAbsolutePath();
         if (userLibrariesDir.exists()) {
@@ -258,20 +261,35 @@ class OpenScadRuntime {
         env.put("LANG", "C.UTF-8");
 
         Process process = pb.start();
+        try {
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            Thread drainer = new Thread(new StreamDrainer(process.getInputStream(), output), "openscad-output-drainer");
+            drainer.start();
 
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        Thread drainer = new Thread(new StreamDrainer(process.getInputStream(), output), "openscad-output-drainer");
-        drainer.start();
+            boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                drainer.join(1000);
+                return new ExecResult(-1, output.toString(StandardCharsets.UTF_8.name()), true);
+            }
 
-        boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
-        if (!finished) {
-            process.destroyForcibly();
             drainer.join(1000);
-            return new ExecResult(-1, output.toString(StandardCharsets.UTF_8.name()), true);
+            return new ExecResult(process.exitValue(), output.toString(StandardCharsets.UTF_8.name()), false);
+        } finally {
+            try {
+                process.getInputStream().close();
+            } catch (IOException ignored) {
+            }
+            try {
+                process.getOutputStream().close();
+            } catch (IOException ignored) {
+            }
+            try {
+                process.getErrorStream().close();
+            } catch (IOException ignored) {
+            }
+            process.destroy();
         }
-
-        drainer.join(1000);
-        return new ExecResult(process.exitValue(), output.toString(StandardCharsets.UTF_8.name()), false);
     }
 
     private static boolean isPermissionDenied(IOException e) {
@@ -288,9 +306,9 @@ class OpenScadRuntime {
         if (parent != null && !parent.exists()) {
             parent.mkdirs();
         }
-        FileOutputStream fos = new FileOutputStream(file, false);
-        fos.write(text.getBytes(StandardCharsets.UTF_8));
-        fos.close();
+        try (FileOutputStream fos = new FileOutputStream(file, false)) {
+            fos.write(text.getBytes(StandardCharsets.UTF_8));
+        }
     }
 
     private static String sanitizeName(String name) {
@@ -348,16 +366,15 @@ class OpenScadRuntime {
             throw new IOException("Could not create parent dir for " + outFile);
         }
 
-        InputStream in = assetManager.open(assetPath);
-        OutputStream out = new FileOutputStream(outFile);
-        byte[] buffer = new byte[8192];
-        int read;
-        while ((read = in.read(buffer)) != -1) {
-            out.write(buffer, 0, read);
+        try (InputStream in = assetManager.open(assetPath);
+                OutputStream out = new FileOutputStream(outFile)) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+            out.flush();
         }
-        out.flush();
-        out.close();
-        in.close();
     }
 
     private static void deleteRecursively(File file) throws IOException {
@@ -379,17 +396,17 @@ class OpenScadRuntime {
 
     String readProject(String fileName) throws IOException {
         File file = new File(projectsDir, fileName);
-        FileInputStream fis = new FileInputStream(file);
         byte[] data = new byte[(int) file.length()];
         int total = 0;
-        while (total < data.length) {
-            int read = fis.read(data, total, data.length - total);
-            if (read < 0) {
-                break;
+        try (FileInputStream fis = new FileInputStream(file)) {
+            while (total < data.length) {
+                int read = fis.read(data, total, data.length - total);
+                if (read < 0) {
+                    break;
+                }
+                total += read;
             }
-            total += read;
         }
-        fis.close();
         return new String(data, 0, total, StandardCharsets.UTF_8);
     }
 

@@ -6,8 +6,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
 
 class StlParser {
 
@@ -120,8 +118,19 @@ class StlParser {
         String text = new String(data, StandardCharsets.UTF_8);
         String[] lines = text.split("\\r?\\n");
 
-        List<Float> verts = new ArrayList<Float>();
-        List<Float> norms = new ArrayList<Float>();
+        // First pass: count vertex lines to pre-allocate arrays
+        int vertexLineCount = 0;
+        for (String raw : lines) {
+            if (raw.trim().startsWith("vertex")) {
+                vertexLineCount++;
+            }
+        }
+        if (vertexLineCount <= 0) {
+            throw new IOException("ASCII STL has no vertices");
+        }
+
+        float[] vertices = new float[vertexLineCount * 3];
+        float[] normals = new float[vertexLineCount * 3];
 
         float minX = Float.POSITIVE_INFINITY;
         float minY = Float.POSITIVE_INFINITY;
@@ -133,7 +142,9 @@ class StlParser {
         float nx = 0f;
         float ny = 0f;
         float nz = 1f;
+        int vi = 0;
 
+        // Second pass: fill arrays directly
         for (String raw : lines) {
             String line = raw.trim();
             if (line.startsWith("facet normal")) {
@@ -150,12 +161,13 @@ class StlParser {
                     float y = parseFloatSafe(p[2]);
                     float z = parseFloatSafe(p[3]);
 
-                    verts.add(x);
-                    verts.add(y);
-                    verts.add(z);
-                    norms.add(nx);
-                    norms.add(ny);
-                    norms.add(nz);
+                    vertices[vi] = x;
+                    vertices[vi + 1] = y;
+                    vertices[vi + 2] = z;
+                    normals[vi] = nx;
+                    normals[vi + 1] = ny;
+                    normals[vi + 2] = nz;
+                    vi += 3;
 
                     minX = Math.min(minX, x);
                     minY = Math.min(minY, y);
@@ -167,30 +179,18 @@ class StlParser {
             }
         }
 
-        if (verts.isEmpty()) {
-            throw new IOException("ASCII STL has no vertices");
-        }
-
-        float[] vertices = new float[verts.size()];
-        float[] normals = new float[norms.size()];
-        for (int i = 0; i < verts.size(); i++) {
-            vertices[i] = verts.get(i);
-            normals[i] = norms.get(i);
-        }
-
         return buildModel(vertices, normals, minX, minY, minZ, maxX, maxY, maxZ);
     }
 
     private static StlModel buildModel(
-        float[] vertices,
-        float[] normals,
-        float minX,
-        float minY,
-        float minZ,
-        float maxX,
-        float maxY,
-        float maxZ
-    ) throws IOException {
+            float[] vertices,
+            float[] normals,
+            float minX,
+            float minY,
+            float minZ,
+            float maxX,
+            float maxY,
+            float maxZ) throws IOException {
         if (vertices.length == 0) {
             throw new IOException("Empty STL mesh");
         }
@@ -220,16 +220,16 @@ class StlParser {
         }
 
         byte[] data = new byte[(int) len];
-        FileInputStream in = new FileInputStream(file);
         int offset = 0;
-        while (offset < data.length) {
-            int read = in.read(data, offset, data.length - offset);
-            if (read < 0) {
-                break;
+        try (FileInputStream in = new FileInputStream(file)) {
+            while (offset < data.length) {
+                int read = in.read(data, offset, data.length - offset);
+                if (read < 0) {
+                    break;
+                }
+                offset += read;
             }
-            offset += read;
         }
-        in.close();
 
         if (offset != data.length) {
             throw new IOException("Could not read STL fully");

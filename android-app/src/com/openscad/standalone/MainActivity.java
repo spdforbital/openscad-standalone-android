@@ -74,34 +74,33 @@ public class MainActivity extends Activity {
     private static final String DEFAULT_FILE = "example.scad";
     private static final int RC_IMPORT_LIBRARY = 4001;
 
-    private static final String DEFAULT_CODE =
-        "// OpenSCAD Example - Parametric Box\n" +
-        "box_width = 30;\n" +
-        "box_depth = 20;\n" +
-        "box_height = 15;\n" +
-        "wall_thickness = 2;\n" +
-        "corner_radius = 3;\n\n" +
-        "module rounded_box(w, d, h, r) {\n" +
-        "    hull() {\n" +
-        "        for (x = [r, w-r])\n" +
-        "            for (y = [r, d-r])\n" +
-        "                translate([x, y, 0])\n" +
-        "                    cylinder(h=h, r=r, $fn=32);\n" +
-        "    }\n" +
-        "}\n\n" +
-        "module hollow_box() {\n" +
-        "    difference() {\n" +
-        "        rounded_box(box_width, box_depth, box_height, corner_radius);\n" +
-        "        translate([wall_thickness, wall_thickness, wall_thickness])\n" +
-        "            rounded_box(\n" +
-        "                box_width - 2*wall_thickness,\n" +
-        "                box_depth - 2*wall_thickness,\n" +
-        "                box_height,\n" +
-        "                corner_radius - wall_thickness/2\n" +
-        "            );\n" +
-        "    }\n" +
-        "}\n\n" +
-        "hollow_box();\n";
+    private static final String DEFAULT_CODE = "// OpenSCAD Example - Parametric Box\n" +
+            "box_width = 30;\n" +
+            "box_depth = 20;\n" +
+            "box_height = 15;\n" +
+            "wall_thickness = 2;\n" +
+            "corner_radius = 3;\n\n" +
+            "module rounded_box(w, d, h, r) {\n" +
+            "    hull() {\n" +
+            "        for (x = [r, w-r])\n" +
+            "            for (y = [r, d-r])\n" +
+            "                translate([x, y, 0])\n" +
+            "                    cylinder(h=h, r=r, $fn=32);\n" +
+            "    }\n" +
+            "}\n\n" +
+            "module hollow_box() {\n" +
+            "    difference() {\n" +
+            "        rounded_box(box_width, box_depth, box_height, corner_radius);\n" +
+            "        translate([wall_thickness, wall_thickness, wall_thickness])\n" +
+            "            rounded_box(\n" +
+            "                box_width - 2*wall_thickness,\n" +
+            "                box_depth - 2*wall_thickness,\n" +
+            "                box_height,\n" +
+            "                corner_radius - wall_thickness/2\n" +
+            "            );\n" +
+            "    }\n" +
+            "}\n\n" +
+            "hollow_box();\n";
 
     private final List<String> fileNames = new ArrayList<String>();
     private final SpannableStringBuilder logBuilder = new SpannableStringBuilder();
@@ -184,21 +183,21 @@ public class MainActivity extends Activity {
         root.setBackground(makePanelGradient(C_BG, C_BG_2, 0, C_BG, false));
 
         root.addView(buildToolbar(), new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, dp(54)));
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(54)));
 
         LinearLayout main = new LinearLayout(this);
         main.setOrientation(compactLayout ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams mainParams = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
 
         sidebar = buildSidebar();
         if (compactLayout) {
             sidebar.setVisibility(View.GONE);
             main.addView(sidebar, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(180)));
+                    ViewGroup.LayoutParams.MATCH_PARENT, dp(180)));
         } else {
             main.addView(sidebar, new LinearLayout.LayoutParams(dp(220),
-                ViewGroup.LayoutParams.MATCH_PARENT));
+                    ViewGroup.LayoutParams.MATCH_PARENT));
         }
 
         LinearLayout editorPanel = buildEditorPanel();
@@ -206,14 +205,14 @@ public class MainActivity extends Activity {
 
         if (compactLayout) {
             main.addView(editorPanel, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+                    ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
             main.addView(previewPanel, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+                    ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         } else {
             main.addView(editorPanel, new LinearLayout.LayoutParams(0,
-                ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+                    ViewGroup.LayoutParams.MATCH_PARENT, 1f));
             main.addView(previewPanel, new LinearLayout.LayoutParams(0,
-                ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+                    ViewGroup.LayoutParams.MATCH_PARENT, 1f));
         }
 
         root.addView(main, mainParams);
@@ -221,7 +220,7 @@ public class MainActivity extends Activity {
         consolePanel = buildConsolePanel();
         consolePanel.setVisibility(View.GONE);
         root.addView(consolePanel, new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, dp(170)));
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(170)));
 
         setContentView(root);
     }
@@ -240,7 +239,7 @@ public class MainActivity extends Activity {
         logo.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
         logo.setLetterSpacing(0.08f);
         LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         logoParams.rightMargin = dp(10);
         toolbar.addView(logo, logoParams);
 
@@ -302,7 +301,7 @@ public class MainActivity extends Activity {
         statusText.setPadding(dp(10), dp(5), dp(10), dp(5));
         statusText.setBackground(makePanelGradient(C_SURFACE_2, C_SURFACE, 12, C_BORDER, false));
         LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(dp(190),
-            ViewGroup.LayoutParams.WRAP_CONTENT);
+                ViewGroup.LayoutParams.WRAP_CONTENT);
         statusParams.rightMargin = dp(10);
         toolbar.addView(statusText, statusParams);
 
@@ -341,7 +340,7 @@ public class MainActivity extends Activity {
             }
         });
         LinearLayout.LayoutParams newParams = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         newParams.setMargins(dp(8), 0, dp(8), dp(8));
         side.addView(newButton, newParams);
 
@@ -357,9 +356,8 @@ public class MainActivity extends Activity {
                 tv.setTextColor(active ? C_BG : C_TEXT);
                 tv.setTypeface(Typeface.create("sans-serif-medium", active ? Typeface.BOLD : Typeface.NORMAL));
                 tv.setBackground(active
-                    ? makePanelGradient(C_ACCENT, C_ACCENT_2, 10, C_ACCENT_2, false)
-                    : makePanelGradient(Color.TRANSPARENT, Color.TRANSPARENT, 10, C_BORDER, false)
-                );
+                        ? makePanelGradient(C_ACCENT, C_ACCENT_2, 10, C_ACCENT_2, false)
+                        : makePanelGradient(Color.TRANSPARENT, Color.TRANSPARENT, 10, C_BORDER, false));
                 tv.setPadding(dp(12), dp(9), dp(12), dp(9));
                 tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
                 return tv;
@@ -383,7 +381,7 @@ public class MainActivity extends Activity {
             }
         });
         side.addView(fileList, new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         Button refreshButton = makeToolbarButton("Refresh", false);
         refreshButton.setOnClickListener(new View.OnClickListener() {
@@ -393,7 +391,7 @@ public class MainActivity extends Activity {
             }
         });
         LinearLayout.LayoutParams refreshParams = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         refreshParams.setMargins(dp(8), dp(8), dp(8), dp(8));
         side.addView(refreshButton, refreshParams);
 
@@ -414,7 +412,7 @@ public class MainActivity extends Activity {
         currentTab.setPadding(dp(12), dp(9), dp(12), dp(9));
         currentTab.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         panel.addView(currentTab, new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         editor = new LineNumberEditText(this);
         editor.setText(DEFAULT_CODE);
@@ -427,10 +425,10 @@ public class MainActivity extends Activity {
         editor.setPadding(dp(12), dp(12), dp(12), dp(12));
         editor.setHorizontallyScrolling(true);
         editor.setInputType(InputType.TYPE_CLASS_TEXT |
-            InputType.TYPE_TEXT_FLAG_MULTI_LINE |
-            InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+                InputType.TYPE_TEXT_FLAG_MULTI_LINE |
+                InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         panel.addView(editor, new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         return panel;
     }
@@ -490,7 +488,7 @@ public class MainActivity extends Activity {
         header.addView(resetButton);
 
         panel.addView(header, new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         FrameLayout container = new FrameLayout(this);
 
@@ -499,99 +497,90 @@ public class MainActivity extends Activity {
         previewSurface.setWireframeMode(wireframeMode);
         previewSurface.setAxisLinesVisible(axisLinesVisible);
         container.addView(previewSurface, new FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         FrameLayout axisPad = new FrameLayout(this);
         axisPad.setBackground(makePanelGradient(0xD9101A2A, 0xD9152437, 24, C_BORDER, true));
 
         int gizmoSize = dp(128);
         FrameLayout.LayoutParams gizmoParams = new FrameLayout.LayoutParams(
-            gizmoSize,
-            gizmoSize
-        );
+                gizmoSize,
+                gizmoSize);
         axisPad.setLayoutParams(gizmoParams);
         axisPad.addView(buildGizmoGuides(gizmoSize), new FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         int c = gizmoSize / 2;
         int outer = dp(42);
         int diag = dp(30);
         axisPad.addView(makeGizmoButton(
-            "ISO",
-            C_ACCENT,
-            C_BG,
-            C_ACCENT_2,
-            StlGlSurfaceView.ViewPreset.ISO,
-            c,
-            c,
-            30
-        ));
+                "ISO",
+                C_ACCENT,
+                C_BG,
+                C_ACCENT_2,
+                StlGlSurfaceView.ViewPreset.ISO,
+                c,
+                c,
+                30));
         axisPad.addView(makeGizmoButton(
-            "X",
-            0xFFFF6B7A,
-            C_BG,
-            0xFF3D1016,
-            StlGlSurfaceView.ViewPreset.POS_X,
-            c + outer,
-            c,
-            24
-        ));
+                "X",
+                0xFFFF6B7A,
+                C_BG,
+                0xFF3D1016,
+                StlGlSurfaceView.ViewPreset.POS_X,
+                c + outer,
+                c,
+                24));
         axisPad.addView(makeGizmoButton(
-            "-X",
-            0xFF5A313A,
-            C_BG,
-            0xFFFFD7DD,
-            StlGlSurfaceView.ViewPreset.NEG_X,
-            c - outer,
-            c,
-            24
-        ));
+                "-X",
+                0xFF5A313A,
+                C_BG,
+                0xFFFFD7DD,
+                StlGlSurfaceView.ViewPreset.NEG_X,
+                c - outer,
+                c,
+                24));
         axisPad.addView(makeGizmoButton(
-            "Y",
-            0xFF7DE4B2,
-            C_BG,
-            0xFF133424,
-            StlGlSurfaceView.ViewPreset.POS_Y,
-            c - diag,
-            c - diag,
-            24
-        ));
+                "Y",
+                0xFF7DE4B2,
+                C_BG,
+                0xFF133424,
+                StlGlSurfaceView.ViewPreset.POS_Y,
+                c - diag,
+                c - diag,
+                24));
         axisPad.addView(makeGizmoButton(
-            "-Y",
-            0xFF315848,
-            C_BG,
-            0xFFD8FFEE,
-            StlGlSurfaceView.ViewPreset.NEG_Y,
-            c + diag,
-            c + diag,
-            24
-        ));
+                "-Y",
+                0xFF315848,
+                C_BG,
+                0xFFD8FFEE,
+                StlGlSurfaceView.ViewPreset.NEG_Y,
+                c + diag,
+                c + diag,
+                24));
         axisPad.addView(makeGizmoButton(
-            "Z",
-            0xFF72A8FF,
-            C_BG,
-            0xFF112947,
-            StlGlSurfaceView.ViewPreset.POS_Z,
-            c,
-            c - outer,
-            24
-        ));
+                "Z",
+                0xFF72A8FF,
+                C_BG,
+                0xFF112947,
+                StlGlSurfaceView.ViewPreset.POS_Z,
+                c,
+                c - outer,
+                24));
         axisPad.addView(makeGizmoButton(
-            "-Z",
-            0xFF2D476D,
-            C_BG,
-            0xFFDCEAFF,
-            StlGlSurfaceView.ViewPreset.NEG_Z,
-            c,
-            c + outer,
-            24
-        ));
+                "-Z",
+                0xFF2D476D,
+                C_BG,
+                0xFFDCEAFF,
+                StlGlSurfaceView.ViewPreset.NEG_Z,
+                c,
+                c + outer,
+                24));
 
         FrameLayout.LayoutParams axisPadParams = new FrameLayout.LayoutParams(
-            gizmoSize,
-            gizmoSize,
-            Gravity.TOP | Gravity.END
-        );
+                gizmoSize,
+                gizmoSize,
+                Gravity.TOP | Gravity.END);
         axisPadParams.setMargins(dp(8), dp(8), dp(8), dp(8));
         container.addView(axisPad, axisPadParams);
 
@@ -602,10 +591,10 @@ public class MainActivity extends Activity {
         previewHint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         previewHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         container.addView(previewHint, new FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         panel.addView(container, new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         return panel;
     }
@@ -652,7 +641,7 @@ public class MainActivity extends Activity {
         header.addView(close);
 
         panel.addView(header, new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         consoleScroll = new ScrollView(this);
         consoleOutput = new TextView(this);
@@ -661,10 +650,10 @@ public class MainActivity extends Activity {
         consoleOutput.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         consoleOutput.setPadding(dp(10), dp(8), dp(10), dp(8));
         consoleScroll.addView(consoleOutput, new ScrollView.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         panel.addView(consoleScroll, new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         return panel;
     }
@@ -678,34 +667,32 @@ public class MainActivity extends Activity {
         button.setTextColor(primary ? C_BG : C_TEXT);
 
         GradientDrawable bg = makePanelGradient(
-            primary ? C_ACCENT : C_SURFACE_2,
-            primary ? C_ACCENT_2 : C_SURFACE,
-            10,
-            primary ? C_ACCENT_2 : C_BORDER,
-            false
-        );
+                primary ? C_ACCENT : C_SURFACE_2,
+                primary ? C_ACCENT_2 : C_SURFACE,
+                10,
+                primary ? C_ACCENT_2 : C_BORDER,
+                false);
         button.setBackground(bg);
         button.setPadding(dp(12), dp(5), dp(12), dp(5));
         button.setElevation(dp(1));
         button.setMinHeight(dp(34));
 
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         params.rightMargin = dp(6);
         button.setLayoutParams(params);
         return button;
     }
 
     private View makeGizmoButton(
-        String text,
-        int fillColor,
-        int strokeColor,
-        int textColor,
-        final StlGlSurfaceView.ViewPreset preset,
-        int centerX,
-        int centerY,
-        int sizeDp
-    ) {
+            String text,
+            int fillColor,
+            int strokeColor,
+            int textColor,
+            final StlGlSurfaceView.ViewPreset preset,
+            int centerX,
+            int centerY,
+            int sizeDp) {
         Button button = new Button(this);
         button.setText(text);
         button.setAllCaps(false);
@@ -830,15 +817,15 @@ public class MainActivity extends Activity {
         }
 
         final ListView pickerList = new ListView(this);
-        final ArrayAdapter<String> pickerAdapter =
-            new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, new ArrayList<String>(fileNames));
+        final ArrayAdapter<String> pickerAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1,
+                new ArrayList<String>(fileNames));
         pickerList.setAdapter(pickerAdapter);
 
         final AlertDialog dialog = new AlertDialog.Builder(this)
-            .setTitle("Open file (long-press to delete)")
-            .setView(pickerList)
-            .setNegativeButton("Close", null)
-            .create();
+                .setTitle("Open file (long-press to delete)")
+                .setView(pickerList)
+                .setNegativeButton("Close", null)
+                .create();
 
         pickerList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -869,45 +856,45 @@ public class MainActivity extends Activity {
 
     private void promptDeleteFile(final String fileName) {
         new AlertDialog.Builder(this)
-            .setTitle("Delete file?")
-            .setMessage(fileName)
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Delete", new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialogInterface, int which) {
-                    boolean deleted = runtime.deleteProject(fileName);
-                    if (!deleted) {
-                        setStatus("Delete failed");
-                        appendLog("Could not delete " + fileName, C_RED);
-                        return;
-                    }
+                .setTitle("Delete file?")
+                .setMessage(fileName)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Delete", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int which) {
+                        boolean deleted = runtime.deleteProject(fileName);
+                        if (!deleted) {
+                            setStatus("Delete failed");
+                            appendLog("Could not delete " + fileName, C_RED);
+                            return;
+                        }
 
-                    appendLog("Deleted " + fileName, C_YELLOW);
-                    boolean removedCurrent = fileName.equals(currentFile);
-                    refreshFiles();
-
-                    if (!removedCurrent) {
-                        return;
-                    }
-
-                    if (!fileNames.isEmpty()) {
-                        openFile(fileNames.get(0));
-                        return;
-                    }
-
-                    try {
-                        runtime.writeProject(DEFAULT_FILE, DEFAULT_CODE);
+                        appendLog("Deleted " + fileName, C_YELLOW);
+                        boolean removedCurrent = fileName.equals(currentFile);
                         refreshFiles();
-                        openFile(DEFAULT_FILE);
-                    } catch (IOException e) {
-                        editor.setText(DEFAULT_CODE);
-                        currentFile = DEFAULT_FILE;
-                        currentTab.setText(DEFAULT_FILE);
-                        setStatus("No files");
+
+                        if (!removedCurrent) {
+                            return;
+                        }
+
+                        if (!fileNames.isEmpty()) {
+                            openFile(fileNames.get(0));
+                            return;
+                        }
+
+                        try {
+                            runtime.writeProject(DEFAULT_FILE, DEFAULT_CODE);
+                            refreshFiles();
+                            openFile(DEFAULT_FILE);
+                        } catch (IOException e) {
+                            editor.setText(DEFAULT_CODE);
+                            currentFile = DEFAULT_FILE;
+                            currentTab.setText(DEFAULT_FILE);
+                            setStatus("No files");
+                        }
                     }
-                }
-            })
-            .show();
+                })
+                .show();
     }
 
     private void refreshFiles() {
@@ -1067,14 +1054,13 @@ public class MainActivity extends Activity {
                                 previewSurface.setModel(finalParsedModel);
                                 previewHint.setVisibility(View.GONE);
                                 appendLog(
-                                    "Viewer mesh loaded: " + finalParsedModel.vertexCount + " vertices, radius " +
-                                        String.format(Locale.US, "%.3f", finalParsedModel.radius) +
-                                        ", center=(" +
-                                        String.format(Locale.US, "%.3f", finalParsedModel.centerX) + "," +
-                                        String.format(Locale.US, "%.3f", finalParsedModel.centerY) + "," +
-                                        String.format(Locale.US, "%.3f", finalParsedModel.centerZ) + ")",
-                                    C_TEXT_2
-                                );
+                                        "Viewer mesh loaded: " + finalParsedModel.vertexCount + " vertices, radius " +
+                                                String.format(Locale.US, "%.3f", finalParsedModel.radius) +
+                                                ", center=(" +
+                                                String.format(Locale.US, "%.3f", finalParsedModel.centerX) + "," +
+                                                String.format(Locale.US, "%.3f", finalParsedModel.centerY) + "," +
+                                                String.format(Locale.US, "%.3f", finalParsedModel.centerZ) + ")",
+                                        C_TEXT_2);
                             } else {
                                 previewHint.setText("Model generated but viewer could not load STL.");
                                 previewHint.setVisibility(View.VISIBLE);
@@ -1120,27 +1106,27 @@ public class MainActivity extends Activity {
         input.setSelection(0, extPos > 0 ? extPos : suggestion.length());
 
         new AlertDialog.Builder(this)
-            .setTitle("Export STL As")
-            .setView(input)
-            .setPositiveButton("Export", new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialogInterface, int which) {
-                    String name = input.getText() == null ? "" : input.getText().toString().trim();
-                    if (name.isEmpty()) {
-                        setStatus("Export cancelled");
-                        appendLog("Export cancelled: empty file name", C_YELLOW);
-                        return;
-                    }
+                .setTitle("Export STL As")
+                .setView(input)
+                .setPositiveButton("Export", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int which) {
+                        String name = input.getText() == null ? "" : input.getText().toString().trim();
+                        if (name.isEmpty()) {
+                            setStatus("Export cancelled");
+                            appendLog("Export cancelled: empty file name", C_YELLOW);
+                            return;
+                        }
 
-                    String safeName = name.replace('\\', '_').replace('/', '_');
-                    if (!safeName.toLowerCase(Locale.US).endsWith(".stl")) {
-                        safeName = safeName + ".stl";
+                        String safeName = name.replace('\\', '_').replace('/', '_');
+                        if (!safeName.toLowerCase(Locale.US).endsWith(".stl")) {
+                            safeName = safeName + ".stl";
+                        }
+                        doExportWithFileName(safeName);
                     }
-                    doExportWithFileName(safeName);
-                }
-            })
-            .setNegativeButton("Cancel", null)
-            .show();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void doExportWithFileName(String fileName) {
@@ -1169,52 +1155,52 @@ public class MainActivity extends Activity {
 
         final String[] labels = options.toArray(new String[0]);
         new AlertDialog.Builder(this)
-            .setTitle("OpenSCAD Libraries")
-            .setItems(labels, new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialogInterface, int which) {
-                    if (which == 0) {
-                        launchLibraryPicker();
-                        return;
-                    }
+                .setTitle("OpenSCAD Libraries")
+                .setItems(labels, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int which) {
+                        if (which == 0) {
+                            launchLibraryPicker();
+                            return;
+                        }
 
-                    int next = 1;
-                    if (which == next) {
-                        showLibraryBrowserDialog();
-                        return;
-                    }
-                    next++;
-
-                    if (!libs.isEmpty()) {
+                        int next = 1;
                         if (which == next) {
-                            showInsertLibraryDialog(libs, false);
+                            showLibraryBrowserDialog();
                             return;
                         }
                         next++;
+
+                        if (!libs.isEmpty()) {
+                            if (which == next) {
+                                showInsertLibraryDialog(libs, false);
+                                return;
+                            }
+                            next++;
+                            if (which == next) {
+                                showInsertLibraryDialog(libs, true);
+                                return;
+                            }
+                            next++;
+                        }
+
                         if (which == next) {
-                            showInsertLibraryDialog(libs, true);
+                            String path = libraryManager.getLibrariesDir().getAbsolutePath();
+                            appendLog("Libraries folder: " + path, C_TEXT_2);
+                            Toast.makeText(MainActivity.this, path, Toast.LENGTH_LONG).show();
                             return;
                         }
+
                         next++;
+                        if (which == next) {
+                            String path = libraryManager.getLibrarySourcesDir().getAbsolutePath();
+                            appendLog("Library source-copy folder: " + path, C_TEXT_2);
+                            Toast.makeText(MainActivity.this, path, Toast.LENGTH_LONG).show();
+                        }
                     }
-
-                    if (which == next) {
-                        String path = libraryManager.getLibrariesDir().getAbsolutePath();
-                        appendLog("Libraries folder: " + path, C_TEXT_2);
-                        Toast.makeText(MainActivity.this, path, Toast.LENGTH_LONG).show();
-                        return;
-                    }
-
-                    next++;
-                    if (which == next) {
-                        String path = libraryManager.getLibrarySourcesDir().getAbsolutePath();
-                        appendLog("Library source-copy folder: " + path, C_TEXT_2);
-                        Toast.makeText(MainActivity.this, path, Toast.LENGTH_LONG).show();
-                    }
-                }
-            })
-            .setNegativeButton("Close", null)
-            .show();
+                })
+                .setNegativeButton("Close", null)
+                .show();
     }
 
     private void showLibraryBrowserDialog() {
@@ -1228,17 +1214,16 @@ public class MainActivity extends Activity {
         listView.setDividerHeight(0);
         listView.setBackgroundColor(Color.TRANSPARENT);
         final ArrayAdapter<String> adapter = new ArrayAdapter<String>(
-            this,
-            android.R.layout.simple_list_item_1,
-            libs
-        );
+                this,
+                android.R.layout.simple_list_item_1,
+                libs);
         listView.setAdapter(adapter);
 
         final AlertDialog dialog = new AlertDialog.Builder(this)
-            .setTitle("Imported Libraries (" + libs.size() + ")")
-            .setView(listView)
-            .setNegativeButton("Close", null)
-            .create();
+                .setTitle("Imported Libraries (" + libs.size() + ")")
+                .setView(listView)
+                .setNegativeButton("Close", null)
+                .create();
 
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -1248,22 +1233,22 @@ public class MainActivity extends Activity {
                 }
                 final String selected = libs.get(position);
                 new AlertDialog.Builder(MainActivity.this)
-                    .setTitle(selected)
-                    .setItems(new String[] {"View code in editor", "Insert use <...>;", "Insert include <...>;"},
-                        new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialogInterface, int which) {
-                                if (which == 0) {
-                                    viewLibraryCodeInEditor(selected);
-                                } else if (which == 1) {
-                                    insertLibraryDirective(selected, false);
-                                } else if (which == 2) {
-                                    insertLibraryDirective(selected, true);
-                                }
-                            }
-                        })
-                    .setNegativeButton("Cancel", null)
-                    .show();
+                        .setTitle(selected)
+                        .setItems(new String[] { "View code in editor", "Insert use <...>;", "Insert include <...>;" },
+                                new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialogInterface, int which) {
+                                        if (which == 0) {
+                                            viewLibraryCodeInEditor(selected);
+                                        } else if (which == 1) {
+                                            insertLibraryDirective(selected, false);
+                                        } else if (which == 2) {
+                                            insertLibraryDirective(selected, true);
+                                        }
+                                    }
+                                })
+                        .setNegativeButton("Cancel", null)
+                        .show();
             }
         });
 
@@ -1294,10 +1279,10 @@ public class MainActivity extends Activity {
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("*/*");
         intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
-            "text/*",
-            "application/zip",
-            "application/x-zip-compressed",
-            "application/octet-stream"
+                "text/*",
+                "application/zip",
+                "application/x-zip-compressed",
+                "application/octet-stream"
         });
         startActivityForResult(intent, RC_IMPORT_LIBRARY);
     }
@@ -1310,18 +1295,18 @@ public class MainActivity extends Activity {
 
         final String[] items = libs.toArray(new String[0]);
         new AlertDialog.Builder(this)
-            .setTitle(include ? "Insert include <...>;" : "Insert use <...>;")
-            .setItems(items, new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialogInterface, int which) {
-                    if (which < 0 || which >= items.length) {
-                        return;
+                .setTitle(include ? "Insert include <...>;" : "Insert use <...>;")
+                .setItems(items, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int which) {
+                        if (which < 0 || which >= items.length) {
+                            return;
+                        }
+                        insertLibraryDirective(items[which], include);
                     }
-                    insertLibraryDirective(items[which], include);
-                }
-            })
-            .setNegativeButton("Cancel", null)
-            .show();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void insertLibraryDirective(String libraryPath, boolean include) {
@@ -1348,7 +1333,8 @@ public class MainActivity extends Activity {
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            int flags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+            int flags = data.getFlags()
+                    & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
             try {
                 getContentResolver().takePersistableUriPermission(uri, flags);
             } catch (Exception ignored) {
@@ -1397,14 +1383,12 @@ public class MainActivity extends Activity {
                 throw new IOException("Could not create export entry");
             }
 
-            try {
-                OutputStream out = getContentResolver().openOutputStream(item, "w");
+            try (OutputStream out = getContentResolver().openOutputStream(item, "w")) {
                 if (out == null) {
                     getContentResolver().delete(item, null, null);
                     throw new IOException("Could not open output stream");
                 }
                 copyFileToStream(source, out);
-                out.close();
             } catch (IOException e) {
                 getContentResolver().delete(item, null, null);
                 throw e;
@@ -1472,7 +1456,8 @@ public class MainActivity extends Activity {
         String line = "[" + ts + "] " + message + "\n";
         int start = logBuilder.length();
         logBuilder.append(line);
-        logBuilder.setSpan(new ForegroundColorSpan(color), start, logBuilder.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        logBuilder.setSpan(new ForegroundColorSpan(color), start, logBuilder.length(),
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         consoleOutput.setText(logBuilder);
         consoleScroll.post(new Runnable() {
             @Override
@@ -1492,61 +1477,60 @@ public class MainActivity extends Activity {
         input.setSelection(suggestion.length());
 
         new AlertDialog.Builder(this)
-            .setTitle(title)
-            .setView(input)
-            .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialogInterface, int i) {
-                    String name = input.getText().toString().trim();
-                    if (!name.endsWith(".scad")) {
-                        name = name + ".scad";
+                .setTitle(title)
+                .setView(input)
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        String name = input.getText().toString().trim();
+                        if (!name.endsWith(".scad")) {
+                            name = name + ".scad";
+                        }
+                        if (name.isEmpty() || ".scad".equals(name)) {
+                            return;
+                        }
+                        callback.onName(name);
                     }
-                    if (name.isEmpty() || ".scad".equals(name)) {
-                        return;
-                    }
-                    callback.onName(name);
-                }
-            })
-            .setNegativeButton("Cancel", null)
-            .show();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private static void copyFile(File source, File target) throws IOException {
-        FileInputStream in = new FileInputStream(source);
-        FileOutputStream out = new FileOutputStream(target);
-        byte[] buffer = new byte[8192];
-        int read;
-        while ((read = in.read(buffer)) != -1) {
-            out.write(buffer, 0, read);
+        try (FileInputStream in = new FileInputStream(source);
+                FileOutputStream out = new FileOutputStream(target)) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+            out.flush();
         }
-        out.flush();
-        out.close();
-        in.close();
     }
 
     private static void copyFileToStream(File source, OutputStream out) throws IOException {
-        FileInputStream in = new FileInputStream(source);
-        byte[] buffer = new byte[8192];
-        int read;
-        while ((read = in.read(buffer)) != -1) {
-            out.write(buffer, 0, read);
+        try (FileInputStream in = new FileInputStream(source)) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+            out.flush();
         }
-        out.flush();
-        in.close();
     }
 
     private int dp(int value) {
         return Math.round(TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP,
-            value,
-            getResources().getDisplayMetrics()));
+                TypedValue.COMPLEX_UNIT_DIP,
+                value,
+                getResources().getDisplayMetrics()));
     }
 
-    private GradientDrawable makePanelGradient(int startColor, int endColor, int radiusDp, int strokeColor, boolean vertical) {
+    private GradientDrawable makePanelGradient(int startColor, int endColor, int radiusDp, int strokeColor,
+            boolean vertical) {
         GradientDrawable bg = new GradientDrawable(
-            vertical ? GradientDrawable.Orientation.TOP_BOTTOM : GradientDrawable.Orientation.LEFT_RIGHT,
-            new int[] {startColor, endColor}
-        );
+                vertical ? GradientDrawable.Orientation.TOP_BOTTOM : GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[] { startColor, endColor });
         bg.setCornerRadius(dp(radiusDp));
         if (strokeColor != Color.TRANSPARENT) {
             bg.setStroke(dp(1), strokeColor);

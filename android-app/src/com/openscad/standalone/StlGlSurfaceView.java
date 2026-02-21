@@ -201,20 +201,61 @@ class StlGlSurfaceView extends View {
     }
 
     private void drawAxes(Canvas canvas, int w, int h) {
-        float[] p0 = projectPoint(0f, 0f, 0f, w, h, null, null, null);
-        float[] px = projectPoint(1.8f, 0f, 0f, w, h, null, null, null);
-        float[] py = projectPoint(0f, 1.8f, 0f, w, h, null, null, null);
-        float[] pz = projectPoint(0f, 0f, 1.8f, w, h, null, null, null);
+        float yaw = (float) Math.toRadians(yawDeg);
+        float pitch = (float) Math.toRadians(pitchDeg);
+        float cosY = (float) Math.cos(yaw);
+        float sinY = (float) Math.sin(yaw);
+        float cosP = (float) Math.cos(pitch);
+        float sinP = (float) Math.sin(pitch);
+        float cx = w * 0.5f;
+        float cy = h * 0.5f;
+        float focal = Math.min(w, h) * 0.65f;
+        float camDist = 4.5f / zoom;
 
-        if (p0 != null && px != null) {
-            canvas.drawLine(p0[0], p0[1], px[0], px[1], axisXPaint);
+        float o0x = projectAxisX(0f, 0f, 0f, cosY, sinY, cosP, sinP, cx, focal, camDist);
+        float o0y = projectAxisY(0f, 0f, 0f, cosY, sinY, cosP, sinP, cy, focal, camDist);
+
+        float pxX = projectAxisX(1.8f, 0f, 0f, cosY, sinY, cosP, sinP, cx, focal, camDist);
+        float pxY = projectAxisY(1.8f, 0f, 0f, cosY, sinY, cosP, sinP, cy, focal, camDist);
+
+        float pyX = projectAxisX(0f, 1.8f, 0f, cosY, sinY, cosP, sinP, cx, focal, camDist);
+        float pyY = projectAxisY(0f, 1.8f, 0f, cosY, sinY, cosP, sinP, cy, focal, camDist);
+
+        float pzX = projectAxisX(0f, 0f, 1.8f, cosY, sinY, cosP, sinP, cx, focal, camDist);
+        float pzY = projectAxisY(0f, 0f, 1.8f, cosY, sinY, cosP, sinP, cy, focal, camDist);
+
+        if (!Float.isNaN(o0x)) {
+            if (!Float.isNaN(pxX))
+                canvas.drawLine(o0x, o0y, pxX, pxY, axisXPaint);
+            if (!Float.isNaN(pyX))
+                canvas.drawLine(o0x, o0y, pyX, pyY, axisYPaint);
+            if (!Float.isNaN(pzX))
+                canvas.drawLine(o0x, o0y, pzX, pzY, axisZPaint);
         }
-        if (p0 != null && py != null) {
-            canvas.drawLine(p0[0], p0[1], py[0], py[1], axisYPaint);
-        }
-        if (p0 != null && pz != null) {
-            canvas.drawLine(p0[0], p0[1], pz[0], pz[1], axisZPaint);
-        }
+    }
+
+    private float projectAxisX(float x, float y, float z,
+            float cosY, float sinY, float cosP, float sinP,
+            float cx, float focal, float camDist) {
+        float x1 = x * cosY + z * sinY + panX;
+        float z1 = -x * sinY + z * cosY;
+        float z2 = y * sinP + z1 * cosP;
+        float depth = z2 + camDist;
+        if (depth <= 0.05f)
+            return Float.NaN;
+        return cx + x1 * focal / depth;
+    }
+
+    private float projectAxisY(float x, float y, float z,
+            float cosY, float sinY, float cosP, float sinP,
+            float cy, float focal, float camDist) {
+        float z1 = -x * sinY + z * cosY;
+        float y1 = y * cosP - z1 * sinP + panY;
+        float z2 = y * sinP + z1 * cosP;
+        float depth = z2 + camDist;
+        if (depth <= 0.05f)
+            return Float.NaN;
+        return cy - y1 * focal / depth;
     }
 
     private void renderModel(Canvas canvas, int w, int h) {
@@ -462,58 +503,6 @@ class StlGlSurfaceView extends View {
             default:
                 return super.onTouchEvent(event);
         }
-    }
-
-    private float[] projectPoint(
-        float x,
-        float y,
-        float z,
-        int w,
-        int h,
-        float[] outWorld,
-        float[] outScreen,
-        float[] outDepth
-    ) {
-        float yaw = (float) Math.toRadians(yawDeg);
-        float pitch = (float) Math.toRadians(pitchDeg);
-        float cosY = (float) Math.cos(yaw);
-        float sinY = (float) Math.sin(yaw);
-        float cosP = (float) Math.cos(pitch);
-        float sinP = (float) Math.sin(pitch);
-
-        float x1 = x * cosY + z * sinY;
-        float z1 = -x * sinY + z * cosY;
-        float y1 = y * cosP - z1 * sinP;
-        float z2 = y * sinP + z1 * cosP;
-
-        x1 += panX;
-        y1 += panY;
-
-        float depth = z2 + (4.5f / zoom);
-        if (depth <= 0.05f) {
-            return null;
-        }
-
-        float cx = w * 0.5f;
-        float cy = h * 0.5f;
-        float focal = Math.min(w, h) * 0.65f;
-        float px = cx + x1 * focal / depth;
-        float py = cy - y1 * focal / depth;
-
-        if (outWorld != null && outWorld.length >= 3) {
-            outWorld[0] = x1;
-            outWorld[1] = y1;
-            outWorld[2] = z2;
-        }
-        if (outScreen != null && outScreen.length >= 2) {
-            outScreen[0] = px;
-            outScreen[1] = py;
-        }
-        if (outDepth != null && outDepth.length >= 1) {
-            outDepth[0] = depth;
-        }
-
-        return new float[] {px, py};
     }
 
     private void ensureCapacity(int vertexCount, int triCount) {

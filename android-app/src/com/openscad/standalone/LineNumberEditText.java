@@ -118,12 +118,9 @@ class LineNumberEditText extends EditText {
 
         int lineCount = Math.max(1, getLineCount());
         int digits = Integer.toString(lineCount).length();
-        StringBuilder maxText = new StringBuilder();
-        for (int i = 0; i < digits; i++) {
-            maxText.append('9');
-        }
+        float singleDigitWidth = numberPaint.measureText("9");
 
-        gutterWidth = (int) (numberPaint.measureText(maxText.toString()) + dp(14));
+        gutterWidth = (int) (singleDigitWidth * digits + dp(14));
         int targetPadding = gutterWidth + dp(8);
         if (targetPadding != extraLeftPadding) {
             extraLeftPadding = targetPadding;
@@ -134,8 +131,8 @@ class LineNumberEditText extends EditText {
 
     private int dp(int value) {
         return Math.round(TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP,
-            value,
-            getResources().getDisplayMetrics()));
+                TypedValue.COMPLEX_UNIT_DIP,
+                value,
+                getResources().getDisplayMetrics()));
     }
 }

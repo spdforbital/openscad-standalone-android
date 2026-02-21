@@ -118,15 +118,12 @@ class LibraryManager {
     }
 
     private String queryDisplayName(Uri uri) {
-        Cursor cursor = null;
-        try {
-            cursor = appContext.getContentResolver().query(
+        try (Cursor cursor = appContext.getContentResolver().query(
                 uri,
                 new String[] { OpenableColumns.DISPLAY_NAME },
                 null,
                 null,
-                null
-            );
+                null)) {
             if (cursor != null && cursor.moveToFirst()) {
                 int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
                 if (index >= 0) {
@@ -134,10 +131,6 @@ class LibraryManager {
                 }
             }
         } catch (Exception ignored) {
-        } finally {
-            if (cursor != null) {
-                cursor.close();
-            }
         }
         return null;
     }
@@ -152,13 +145,13 @@ class LibraryManager {
             throw new IOException("Could not create " + importRoot.getAbsolutePath());
         }
 
-        InputStream baseIn = new FileInputStream(archiveFile);
-        ZipInputStream zipIn = new ZipInputStream(new BufferedInputStream(baseIn));
-        byte[] buffer = new byte[8192];
-        int writtenFiles = 0;
-        String rootPath = importRoot.getCanonicalPath() + File.separator;
+        try (InputStream baseIn = new FileInputStream(archiveFile);
+                ZipInputStream zipIn = new ZipInputStream(new BufferedInputStream(baseIn))) {
 
-        try {
+            byte[] buffer = new byte[8192];
+            int writtenFiles = 0;
+            String rootPath = importRoot.getCanonicalPath() + File.separator;
+
             ZipEntry entry;
             while ((entry = zipIn.getNextEntry()) != null) {
                 String name = entry.getName();
@@ -193,46 +186,43 @@ class LibraryManager {
                     throw new IOException("Could not create " + parent.getAbsolutePath());
                 }
 
-                FileOutputStream out = new FileOutputStream(outFile);
-                int read;
-                while ((read = zipIn.read(buffer)) != -1) {
-                    out.write(buffer, 0, read);
+                try (FileOutputStream out = new FileOutputStream(outFile)) {
+                    int read;
+                    while ((read = zipIn.read(buffer)) != -1) {
+                        out.write(buffer, 0, read);
+                    }
+                    out.flush();
                 }
-                out.flush();
-                out.close();
                 writtenFiles++;
                 zipIn.closeEntry();
             }
-        } finally {
-            zipIn.close();
-        }
 
-        if (writtenFiles <= 0) {
-            throw new IOException("Archive was empty");
+            if (writtenFiles <= 0) {
+                throw new IOException("Archive was empty");
+            }
+            return writtenFiles;
         }
-        return writtenFiles;
     }
 
     private void copyUriToFile(Uri uri, File target) throws IOException {
-        InputStream in = appContext.getContentResolver().openInputStream(uri);
-        if (in == null) {
-            throw new IOException("Could not open selected file");
-        }
-        File parent = target.getParentFile();
-        if (parent != null && !parent.exists() && !parent.mkdirs()) {
-            in.close();
-            throw new IOException("Could not create " + parent.getAbsolutePath());
-        }
+        try (InputStream in = appContext.getContentResolver().openInputStream(uri)) {
+            if (in == null) {
+                throw new IOException("Could not open selected file");
+            }
+            File parent = target.getParentFile();
+            if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                throw new IOException("Could not create " + parent.getAbsolutePath());
+            }
 
-        FileOutputStream out = new FileOutputStream(target);
-        byte[] buffer = new byte[8192];
-        int read;
-        while ((read = in.read(buffer)) != -1) {
-            out.write(buffer, 0, read);
+            try (FileOutputStream out = new FileOutputStream(target)) {
+                byte[] buffer = new byte[8192];
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                }
+                out.flush();
+            }
         }
-        out.flush();
-        out.close();
-        in.close();
     }
 
     private static File resolveUniqueFile(File file) {
@@ -303,30 +293,29 @@ class LibraryManager {
             throw new IOException("Could not create " + parent.getAbsolutePath());
         }
 
-        FileInputStream in = new FileInputStream(source);
-        FileOutputStream out = new FileOutputStream(target);
-        byte[] buffer = new byte[8192];
-        int read;
-        while ((read = in.read(buffer)) != -1) {
-            out.write(buffer, 0, read);
+        try (FileInputStream in = new FileInputStream(source);
+                FileOutputStream out = new FileOutputStream(target)) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+            out.flush();
         }
-        out.flush();
-        out.close();
-        in.close();
     }
 
     private static String readTextFile(File source) throws IOException {
-        FileInputStream in = new FileInputStream(source);
         byte[] data = new byte[(int) source.length()];
         int total = 0;
-        while (total < data.length) {
-            int read = in.read(data, total, data.length - total);
-            if (read < 0) {
-                break;
+        try (FileInputStream in = new FileInputStream(source)) {
+            while (total < data.length) {
+                int read = in.read(data, total, data.length - total);
+                if (read < 0) {
+                    break;
+                }
+                total += read;
             }
-            total += read;
         }
-        in.close();
         return new String(data, 0, total, StandardCharsets.UTF_8);
     }
 }
