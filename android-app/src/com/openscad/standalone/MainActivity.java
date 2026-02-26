@@ -56,6 +56,9 @@ import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
     private static final String BUILD_MARKER = "2026-02-26_00:01_v13";
+    private static final String RUNTIME_DATE_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
+    private static final String LOG_TIME_PATTERN = "HH:mm:ss";
+    private static final String EMPTY_LABEL = "-";
 
     private static final int C_BG = Color.parseColor("#0c111a");
     private static final int C_BG_2 = Color.parseColor("#111a27");
@@ -826,15 +829,7 @@ public class MainActivity extends Activity {
                         @Override
                         public void run() {
                             lastRuntimeStatus = status;
-                            if (status.updateAvailable) {
-                                appendLog(
-                                    "Runtime update available: " + safeLabel(status.latestVersion) +
-                                        " (" + safeLabel(status.latestAssetName) + ")",
-                                    C_YELLOW
-                                );
-                            } else {
-                                appendLog("Runtime check: " + safeLabel(status.message), C_TEXT_2);
-                            }
+                            logRuntimeCheckResult(status, null);
                         }
                     });
                 } catch (final Exception e) {
@@ -861,8 +856,7 @@ public class MainActivity extends Activity {
         scroll.addView(info, new ScrollView.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        RuntimeUpdateManager.RuntimeStatus cached =
-            lastRuntimeStatus == null ? runtimeUpdateManager.getCachedStatus() : lastRuntimeStatus;
+        RuntimeUpdateManager.RuntimeStatus cached = getCurrentRuntimeStatus();
         info.setText(buildRuntimeStatusText(cached, null));
 
         final AlertDialog dialog = new AlertDialog.Builder(this)
@@ -878,10 +872,8 @@ public class MainActivity extends Activity {
             public void onShow(DialogInterface dialogInterface) {
                 final Button refreshButton = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
                 final Button downloadButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-                RuntimeUpdateManager.RuntimeStatus status =
-                    lastRuntimeStatus == null ? runtimeUpdateManager.getCachedStatus() : lastRuntimeStatus;
-                downloadButton.setEnabled(canDownloadRuntime(status));
-                downloadButton.setText(runtimeActionLabel(status));
+                RuntimeUpdateManager.RuntimeStatus status = getCurrentRuntimeStatus();
+                updateRuntimeDialogButtons(refreshButton, downloadButton, status, false);
 
                 refreshButton.setOnClickListener(new View.OnClickListener() {
                     @Override
@@ -909,10 +901,8 @@ public class MainActivity extends Activity {
         final Button refreshButton,
         final Button downloadButton
     ) {
-        RuntimeUpdateManager.RuntimeStatus current =
-            lastRuntimeStatus == null ? runtimeUpdateManager.getCachedStatus() : lastRuntimeStatus;
-        refreshButton.setEnabled(false);
-        downloadButton.setEnabled(false);
+        RuntimeUpdateManager.RuntimeStatus current = getCurrentRuntimeStatus();
+        updateRuntimeDialogButtons(refreshButton, downloadButton, current, true);
         info.setText(buildRuntimeStatusText(current, "Checking latest release..."));
 
         executor.execute(new Runnable() {
@@ -934,23 +924,8 @@ public class MainActivity extends Activity {
                     public void run() {
                         lastRuntimeStatus = finalStatus;
                         info.setText(buildRuntimeStatusText(finalStatus, finalError == null ? null : "Check failed: " + finalError));
-                        refreshButton.setEnabled(true);
-                        downloadButton.setEnabled(canDownloadRuntime(finalStatus));
-                        downloadButton.setText(runtimeActionLabel(finalStatus));
-
-                        if (finalError != null) {
-                            appendLog("Runtime update check failed: " + finalError, C_YELLOW);
-                            return;
-                        }
-                        if (finalStatus.updateAvailable) {
-                            appendLog(
-                                "Runtime update available: " + safeLabel(finalStatus.latestVersion) +
-                                    " (" + safeLabel(finalStatus.latestAssetName) + ")",
-                                C_YELLOW
-                            );
-                        } else {
-                            appendLog("Runtime check: " + safeLabel(finalStatus.message), C_TEXT_2);
-                        }
+                        updateRuntimeDialogButtons(refreshButton, downloadButton, finalStatus, false);
+                        logRuntimeCheckResult(finalStatus, finalError);
                     }
                 });
             }
@@ -962,11 +937,8 @@ public class MainActivity extends Activity {
         final Button refreshButton,
         final Button downloadButton
     ) {
-        refreshButton.setEnabled(false);
-        downloadButton.setEnabled(false);
-
-        RuntimeUpdateManager.RuntimeStatus current =
-            lastRuntimeStatus == null ? runtimeUpdateManager.getCachedStatus() : lastRuntimeStatus;
+        RuntimeUpdateManager.RuntimeStatus current = getCurrentRuntimeStatus();
+        updateRuntimeDialogButtons(refreshButton, downloadButton, current, true);
         info.setText(buildRuntimeStatusText(current, "Starting download + install..."));
         setStatus("Downloading runtime...");
 
@@ -983,9 +955,7 @@ public class MainActivity extends Activity {
                             mainHandler.post(new Runnable() {
                                 @Override
                                 public void run() {
-                                    RuntimeUpdateManager.RuntimeStatus shown = lastRuntimeStatus == null
-                                        ? runtimeUpdateManager.getCachedStatus()
-                                        : lastRuntimeStatus;
+                                    RuntimeUpdateManager.RuntimeStatus shown = getCurrentRuntimeStatus();
                                     info.setText(buildRuntimeStatusText(shown, message));
                                     appendLog("Runtime: " + message, C_TEXT_2);
                                 }
@@ -1019,13 +989,42 @@ public class MainActivity extends Activity {
                             info.setText(buildRuntimeStatusText(finalStatus, "Install failed: " + finalError));
                         }
 
-                        refreshButton.setEnabled(true);
-                        downloadButton.setEnabled(canDownloadRuntime(finalStatus));
-                        downloadButton.setText(runtimeActionLabel(finalStatus));
+                        updateRuntimeDialogButtons(refreshButton, downloadButton, finalStatus, false);
                     }
                 });
             }
         });
+    }
+
+    private RuntimeUpdateManager.RuntimeStatus getCurrentRuntimeStatus() {
+        return lastRuntimeStatus == null ? runtimeUpdateManager.getCachedStatus() : lastRuntimeStatus;
+    }
+
+    private void updateRuntimeDialogButtons(
+        Button refreshButton,
+        Button downloadButton,
+        RuntimeUpdateManager.RuntimeStatus status,
+        boolean busy
+    ) {
+        refreshButton.setEnabled(!busy);
+        downloadButton.setEnabled(!busy && canDownloadRuntime(status));
+        downloadButton.setText(runtimeActionLabel(status));
+    }
+
+    private void logRuntimeCheckResult(RuntimeUpdateManager.RuntimeStatus status, String errorMessage) {
+        if (!TextUtils.isEmpty(errorMessage)) {
+            appendLog("Runtime update check failed: " + errorMessage, C_YELLOW);
+            return;
+        }
+        if (status != null && status.updateAvailable) {
+            appendLog(
+                "Runtime update available: " + safeLabel(status.latestVersion) +
+                    " (" + safeLabel(status.latestAssetName) + ")",
+                C_YELLOW
+            );
+            return;
+        }
+        appendLog("Runtime check: " + safeLabel(status == null ? null : status.message), C_TEXT_2);
     }
 
     private boolean canDownloadRuntime(RuntimeUpdateManager.RuntimeStatus status) {
@@ -1063,7 +1062,7 @@ public class MainActivity extends Activity {
         sb.append("Update Available: ").append(status.updateAvailable ? "Yes" : "No").append('\n');
         if (status.checkedAtMs > 0) {
             sb.append("Last Check: ");
-            sb.append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date(status.checkedAtMs)));
+            sb.append(formatTimestamp(status.checkedAtMs, RUNTIME_DATE_TIME_PATTERN));
             sb.append('\n');
         }
         sb.append("Status: ").append(safeLabel(status.message));
@@ -1075,7 +1074,7 @@ public class MainActivity extends Activity {
 
     private String safeLabel(String value) {
         if (value == null || value.trim().isEmpty()) {
-            return "-";
+            return EMPTY_LABEL;
         }
         return value;
     }
@@ -1730,7 +1729,7 @@ public class MainActivity extends Activity {
     }
 
     private void appendLog(String message, int color) {
-        String ts = new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date());
+        String ts = formatTimestamp(System.currentTimeMillis(), LOG_TIME_PATTERN);
         String line = "[" + ts + "] " + message + "\n";
         int start = logBuilder.length();
         logBuilder.append(line);
@@ -1743,6 +1742,10 @@ public class MainActivity extends Activity {
                 consoleScroll.fullScroll(View.FOCUS_DOWN);
             }
         });
+    }
+
+    private String formatTimestamp(long timestampMs, String pattern) {
+        return new SimpleDateFormat(pattern, Locale.US).format(new Date(timestampMs));
     }
 
     private void setStatus(String text) {

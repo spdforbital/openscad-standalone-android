@@ -95,8 +95,9 @@ class RuntimeUpdateManager {
 
     private static final String REPO_OWNER = "spdforbital";
     private static final String REPO_NAME = "openscad-standalone-android";
+    private static final String REPOSITORY = REPO_OWNER + "/" + REPO_NAME;
     private static final String RELEASES_LATEST_URL =
-        "https://api.github.com/repos/" + REPO_OWNER + "/" + REPO_NAME + "/releases/latest";
+        "https://api.github.com/repos/" + REPOSITORY + "/releases/latest";
 
     private static final String PREFS_NAME = "runtime_update_prefs";
     private static final String KEY_LATEST_VERSION = "latest_version";
@@ -108,6 +109,12 @@ class RuntimeUpdateManager {
 
     private static final int CONNECT_TIMEOUT_MS = 10000;
     private static final int READ_TIMEOUT_MS = 25000;
+    private static final int IO_BUFFER_SIZE = 8192;
+
+    private static final String USER_AGENT = "OpenSCAD-Standalone-Android";
+    private static final String BUNDLED_VERSION = "Bundled";
+    private static final String BUNDLED_ASSET = "(bundled assets)";
+    private static final String ZIP_EXTENSION = ".zip";
 
     private static final String ABI_ARM64 = "arm64-v8a";
     private static final String ABI_ARMV7 = "armeabi-v7a";
@@ -129,8 +136,8 @@ class RuntimeUpdateManager {
         MetaInfo meta = readMetaInfo();
         boolean downloaded = meta != null && !TextUtils.isEmpty(meta.tag);
 
-        String installedVersion = downloaded ? meta.tag : "Bundled";
-        String installedAsset = downloaded ? meta.assetName : "(bundled assets)";
+        String installedVersion = downloaded ? meta.tag : BUNDLED_VERSION;
+        String installedAsset = downloaded ? meta.assetName : BUNDLED_ASSET;
 
         String latestVersion = prefs.getString(KEY_LATEST_VERSION, "");
         String latestAsset = prefs.getString(KEY_LATEST_ASSET, "");
@@ -157,7 +164,7 @@ class RuntimeUpdateManager {
         }
 
         return new RuntimeStatus(
-            REPO_OWNER + "/" + REPO_NAME,
+            REPOSITORY,
             abi,
             abiSupported,
             downloaded,
@@ -179,12 +186,12 @@ class RuntimeUpdateManager {
 
         if (!abiSupported) {
             return new RuntimeStatus(
-                REPO_OWNER + "/" + REPO_NAME,
+                REPOSITORY,
                 "",
                 false,
                 meta != null,
-                meta == null ? "Bundled" : meta.tag,
-                meta == null ? "(bundled assets)" : meta.assetName,
+                meta == null ? BUNDLED_VERSION : meta.tag,
+                meta == null ? BUNDLED_ASSET : meta.assetName,
                 meta == null ? 0L : meta.installedAtMs,
                 "",
                 "",
@@ -206,8 +213,8 @@ class RuntimeUpdateManager {
             .apply();
 
         boolean downloaded = meta != null && !TextUtils.isEmpty(meta.tag);
-        String installedVersion = downloaded ? meta.tag : "Bundled";
-        String installedAsset = downloaded ? meta.assetName : "(bundled assets)";
+        String installedVersion = downloaded ? meta.tag : BUNDLED_VERSION;
+        String installedAsset = downloaded ? meta.assetName : BUNDLED_ASSET;
 
         boolean updateAvailable = false;
         if (!TextUtils.isEmpty(latestVersion)) {
@@ -228,7 +235,7 @@ class RuntimeUpdateManager {
         }
 
         return new RuntimeStatus(
-            REPO_OWNER + "/" + REPO_NAME,
+            REPOSITORY,
             abi,
             true,
             downloaded,
@@ -260,8 +267,8 @@ class RuntimeUpdateManager {
         runtime.markRuntimeUnprepared();
 
         File downloadFile = new File(appContext.getCacheDir(), "openscad_runtime_download.tmp");
-        if (downloadFile.exists()) {
-            downloadFile.delete();
+        if (downloadFile.exists() && !downloadFile.delete()) {
+            throw new IOException("Could not clear previous runtime download file");
         }
 
         File runtimeRoot = runtime.getRuntimeRoot();
@@ -269,7 +276,7 @@ class RuntimeUpdateManager {
             notifyProgress(listener, "Downloading " + release.asset.name + "...");
             downloadToFile(release.asset.url, downloadFile);
 
-            if (release.asset.name.toLowerCase(Locale.US).endsWith(".zip")) {
+            if (release.asset.name.toLowerCase(Locale.US).endsWith(ZIP_EXTENSION)) {
                 notifyProgress(listener, "Installing runtime archive...");
                 installFromZip(downloadFile, runtimeRoot);
             } else {
@@ -299,6 +306,8 @@ class RuntimeUpdateManager {
                 );
             }
             throw new IOException("Runtime install failed, restored bundled runtime: " + installError.getMessage(), installError);
+        } finally {
+            deleteQuietly(downloadFile);
         }
 
         notifyProgress(listener, "Runtime installed: " + release.tag);
@@ -321,7 +330,7 @@ class RuntimeUpdateManager {
             conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
             conn.setReadTimeout(READ_TIMEOUT_MS);
             conn.setRequestProperty("Accept", "application/vnd.github+json");
-            conn.setRequestProperty("User-Agent", "OpenSCAD-Standalone-Android");
+            conn.setRequestProperty("User-Agent", USER_AGENT);
 
             int code = conn.getResponseCode();
             InputStream in = code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream();
@@ -491,15 +500,13 @@ class RuntimeUpdateManager {
 
     private void downloadToFile(String url, File target) throws IOException {
         HttpURLConnection conn = null;
-        InputStream in = null;
-        BufferedOutputStream out = null;
         try {
             conn = (HttpURLConnection) new URL(url).openConnection();
             conn.setRequestMethod("GET");
             conn.setInstanceFollowRedirects(true);
             conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
             conn.setReadTimeout(READ_TIMEOUT_MS);
-            conn.setRequestProperty("User-Agent", "OpenSCAD-Standalone-Android");
+            conn.setRequestProperty("User-Agent", USER_AGENT);
 
             int code = conn.getResponseCode();
             if (code < 200 || code >= 300) {
@@ -507,27 +514,16 @@ class RuntimeUpdateManager {
                 throw new IOException("Download failed " + code + ": " + trimForError(body));
             }
 
-            in = new BufferedInputStream(conn.getInputStream());
-            out = new BufferedOutputStream(new FileOutputStream(target, false));
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = in.read(buffer)) != -1) {
-                out.write(buffer, 0, read);
+            try (InputStream in = new BufferedInputStream(conn.getInputStream());
+                    BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(target, false))) {
+                byte[] buffer = new byte[IO_BUFFER_SIZE];
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                }
+                out.flush();
             }
-            out.flush();
         } finally {
-            if (out != null) {
-                try {
-                    out.close();
-                } catch (IOException ignored) {
-                }
-            }
-            if (in != null) {
-                try {
-                    in.close();
-                } catch (IOException ignored) {
-                }
-            }
             if (conn != null) {
                 conn.disconnect();
             }
@@ -552,24 +548,28 @@ class RuntimeUpdateManager {
             throw new IOException("Could not create unzip directory");
         }
 
-        unzip(zipFile, unpackRoot);
+        try {
+            unzip(zipFile, unpackRoot);
 
-        File payloadRoot = findRuntimePayload(unpackRoot);
-        if (payloadRoot == null) {
-            throw new IOException("Archive does not contain runtime/bin/openscad or bin/openscad");
-        }
+            File payloadRoot = findRuntimePayload(unpackRoot);
+            if (payloadRoot == null) {
+                throw new IOException("Archive does not contain runtime/bin/openscad or bin/openscad");
+            }
 
-        String[] parts = new String[] {"bin", "lib", "share", "etc", "home"};
-        for (String part : parts) {
-            File source = new File(payloadRoot, part);
-            if (!source.exists()) {
-                continue;
+            String[] parts = new String[] {"bin", "lib", "share", "etc", "home"};
+            for (String part : parts) {
+                File source = new File(payloadRoot, part);
+                if (!source.exists()) {
+                    continue;
+                }
+                File target = new File(runtimeRoot, part);
+                if (target.exists()) {
+                    deleteRecursively(target);
+                }
+                copyRecursively(source, target);
             }
-            File target = new File(runtimeRoot, part);
-            if (target.exists()) {
-                deleteRecursively(target);
-            }
-            copyRecursively(source, target);
+        } finally {
+            deleteQuietly(unpackRoot);
         }
     }
 
@@ -603,9 +603,9 @@ class RuntimeUpdateManager {
 
     private void unzip(File zipFile, File outDir) throws IOException {
         String rootPath = outDir.getCanonicalPath() + File.separator;
-        ZipInputStream zin = new ZipInputStream(new BufferedInputStream(new FileInputStream(zipFile)));
-        byte[] buffer = new byte[8192];
-        try {
+        String outDirPath = outDir.getCanonicalPath();
+        byte[] buffer = new byte[IO_BUFFER_SIZE];
+        try (ZipInputStream zin = new ZipInputStream(new BufferedInputStream(new FileInputStream(zipFile)))) {
             ZipEntry entry;
             while ((entry = zin.getNextEntry()) != null) {
                 String name = entry.getName();
@@ -624,7 +624,7 @@ class RuntimeUpdateManager {
 
                 File outFile = new File(outDir, name);
                 String outPath = outFile.getCanonicalPath();
-                if (!(outPath.equals(outDir.getCanonicalPath()) || outPath.startsWith(rootPath))) {
+                if (!(outPath.equals(outDirPath) || outPath.startsWith(rootPath))) {
                     zin.closeEntry();
                     continue;
                 }
@@ -640,25 +640,23 @@ class RuntimeUpdateManager {
                     throw new IOException("Could not create " + parent.getAbsolutePath());
                 }
 
-                BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(outFile));
-                int read;
-                while ((read = zin.read(buffer)) != -1) {
-                    out.write(buffer, 0, read);
+                try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(outFile))) {
+                    int read;
+                    while ((read = zin.read(buffer)) != -1) {
+                        out.write(buffer, 0, read);
+                    }
+                    out.flush();
                 }
-                out.flush();
-                out.close();
                 zin.closeEntry();
             }
-        } finally {
-            zin.close();
         }
     }
 
     private void writeReadyMarker(File runtimeRoot) throws IOException {
         File marker = new File(runtimeRoot, READY_MARKER_NAME);
-        FileOutputStream fos = new FileOutputStream(marker, false);
-        fos.write(Long.toString(System.currentTimeMillis()).getBytes(StandardCharsets.UTF_8));
-        fos.close();
+        try (FileOutputStream fos = new FileOutputStream(marker, false)) {
+            fos.write(Long.toString(System.currentTimeMillis()).getBytes(StandardCharsets.UTF_8));
+        }
     }
 
     private MetaInfo readMetaInfo() {
@@ -685,16 +683,16 @@ class RuntimeUpdateManager {
         File metaFile = new File(runtime.getRuntimeRoot(), META_FILE_NAME);
         JSONObject json = new JSONObject();
         try {
-            json.put("repo", REPO_OWNER + "/" + REPO_NAME);
+            json.put("repo", REPOSITORY);
             json.put("tag", safe(meta.tag));
             json.put("asset_name", safe(meta.assetName));
             json.put("installed_at", meta.installedAtMs);
         } catch (JSONException ignored) {
         }
 
-        FileOutputStream fos = new FileOutputStream(metaFile, false);
-        fos.write(json.toString().getBytes(StandardCharsets.UTF_8));
-        fos.close();
+        try (FileOutputStream fos = new FileOutputStream(metaFile, false)) {
+            fos.write(json.toString().getBytes(StandardCharsets.UTF_8));
+        }
     }
 
     private static class MetaInfo {
@@ -731,16 +729,15 @@ class RuntimeUpdateManager {
     }
 
     private static void copyFile(File source, File target) throws IOException {
-        InputStream in = new BufferedInputStream(new FileInputStream(source));
-        FileOutputStream out = new FileOutputStream(target, false);
-        byte[] buffer = new byte[8192];
-        int read;
-        while ((read = in.read(buffer)) != -1) {
-            out.write(buffer, 0, read);
+        try (InputStream in = new BufferedInputStream(new FileInputStream(source));
+                FileOutputStream out = new FileOutputStream(target, false)) {
+            byte[] buffer = new byte[IO_BUFFER_SIZE];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+            out.flush();
         }
-        out.flush();
-        out.close();
-        in.close();
     }
 
     private static void deleteRecursively(File file) throws IOException {
@@ -766,7 +763,7 @@ class RuntimeUpdateManager {
         }
         try {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            byte[] buf = new byte[8192];
+            byte[] buf = new byte[IO_BUFFER_SIZE];
             int read;
             while ((read = in.read(buf)) != -1) {
                 out.write(buf, 0, read);
@@ -794,6 +791,16 @@ class RuntimeUpdateManager {
     private static void notifyProgress(ProgressListener listener, String msg) {
         if (listener != null) {
             listener.onProgress(msg);
+        }
+    }
+
+    private static void deleteQuietly(File file) {
+        if (file == null || !file.exists()) {
+            return;
+        }
+        try {
+            deleteRecursively(file);
+        } catch (IOException ignored) {
         }
     }
 

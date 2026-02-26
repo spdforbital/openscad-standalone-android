@@ -23,6 +23,7 @@ class StlGlSurfaceView extends View {
 
     private static final float MIN_ZOOM = 0.25f;
     private static final float MAX_ZOOM = 6.0f;
+    private static final int VIEW_BACKGROUND_COLOR = 0xFF11111B;
 
     private final ScaleGestureDetector scaleDetector;
     private final Paint shadedPaint;
@@ -66,9 +67,7 @@ class StlGlSurfaceView extends View {
         axisXPaint = makePaint(false, 0xFFF45A5A, 3.0f);
         axisYPaint = makePaint(false, 0xFF62ED7A, 3.0f);
         axisZPaint = makePaint(false, 0xFF5D94FA, 3.0f);
-        setBackgroundColor(Color.parseColor("#11111b"));
-        setFocusable(true);
-        setClickable(true);
+        init();
     }
 
     StlGlSurfaceView(Context context, AttributeSet attrs) {
@@ -79,7 +78,11 @@ class StlGlSurfaceView extends View {
         axisXPaint = makePaint(false, 0xFFF45A5A, 3.0f);
         axisYPaint = makePaint(false, 0xFF62ED7A, 3.0f);
         axisZPaint = makePaint(false, 0xFF5D94FA, 3.0f);
-        setBackgroundColor(Color.parseColor("#11111b"));
+        init();
+    }
+
+    private void init() {
+        setBackgroundColor(VIEW_BACKGROUND_COLOR);
         setFocusable(true);
         setClickable(true);
     }
@@ -182,7 +185,7 @@ class StlGlSurfaceView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        canvas.drawColor(Color.parseColor("#11111b"));
+        canvas.drawColor(VIEW_BACKGROUND_COLOR);
 
         int w = getWidth();
         int h = getHeight();
