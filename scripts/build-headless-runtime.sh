@@ -7,6 +7,21 @@ BUILD_DIR="${2:-$HOME/openscad-build-headless}"
 OUT_DIR="${3:-$ROOT_DIR/release-assets}"
 PREFIX="${TERMUX_PREFIX:-/data/data/com.termux/files/usr}"
 
+sanitize_fontconfig() {
+  local etc_root="$1"
+  local conf="$etc_root/fonts/fonts.conf"
+  local readme="$etc_root/fonts/conf.d/README"
+  if [ ! -f "$conf" ]; then
+    :
+  else
+    sed -i '/\/data\/data\/com\.termux\/files\/usr\/share\/fonts/d' "$conf"
+    sed -i '/\/data\/data\/com\.termux\/files\/usr\/var\/cache\/fontconfig/d' "$conf"
+  fi
+  if [ -f "$readme" ]; then
+    sed -i 's#/data/data/com.termux/files/usr/share/fontconfig/conf.avail#/usr/share/fontconfig/conf.avail#g' "$readme"
+  fi
+}
+
 if ! command -v cmake >/dev/null 2>&1; then
   echo "cmake is required" >&2
   exit 1
@@ -81,6 +96,7 @@ python3 "$ROOT_DIR/scripts/collect_runtime_libs.py" \
 
 cp -aL "$PREFIX/share/openscad" "$STAGE/runtime/share/"
 cp -aL "$PREFIX/etc/fonts" "$STAGE/runtime/etc/"
+sanitize_fontconfig "$STAGE/runtime/etc"
 
 cat > "$STAGE/runtime/BUILD_INFO.txt" <<META
 source_repo=https://github.com/openscad/openscad

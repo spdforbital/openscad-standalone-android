@@ -11,6 +11,21 @@ LIB_ROOT="$PREFIX/lib"
 OPENSCAD_SHARE="$PREFIX/share/openscad"
 FONTCONFIG_ETC="$PREFIX/etc/fonts"
 
+sanitize_fontconfig() {
+  local etc_root="$1"
+  local conf="$etc_root/fonts/fonts.conf"
+  local readme="$etc_root/fonts/conf.d/README"
+  if [ ! -f "$conf" ]; then
+    :
+  else
+    sed -i '/\/data\/data\/com\.termux\/files\/usr\/share\/fonts/d' "$conf"
+    sed -i '/\/data\/data\/com\.termux\/files\/usr\/var\/cache\/fontconfig/d' "$conf"
+  fi
+  if [ -f "$readme" ]; then
+    sed -i 's#/data/data/com.termux/files/usr/share/fontconfig/conf.avail#/usr/share/fontconfig/conf.avail#g' "$readme"
+  fi
+}
+
 if [ ! -f "$OPENSCAD_BIN" ]; then
   echo "OpenSCAD binary not found: $OPENSCAD_BIN" >&2
   exit 1
@@ -41,6 +56,7 @@ fi
 
 if [ -d "$FONTCONFIG_ETC" ]; then
   cp -aL "$FONTCONFIG_ETC" "$RUNTIME_ASSET_DIR/etc/"
+  sanitize_fontconfig "$RUNTIME_ASSET_DIR/etc"
 else
   echo "Warning: Fontconfig config missing: $FONTCONFIG_ETC" >&2
 fi
