@@ -55,7 +55,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
-    private static final String BUILD_MARKER = "2026-02-19_00:02_v12";
+    private static final String BUILD_MARKER = "2026-02-26_00:01_v13";
 
     private static final int C_BG = Color.parseColor("#0c111a");
     private static final int C_BG_2 = Color.parseColor("#111a27");
@@ -107,8 +107,10 @@ public class MainActivity extends Activity {
 
     private OpenScadRuntime runtime;
     private LibraryManager libraryManager;
+    private RuntimeUpdateManager runtimeUpdateManager;
     private ExecutorService executor;
     private Handler mainHandler;
+    private RuntimeUpdateManager.RuntimeStatus lastRuntimeStatus;
 
     private boolean compactLayout;
     private boolean rendering;
@@ -141,6 +143,7 @@ public class MainActivity extends Activity {
 
         runtime = new OpenScadRuntime(this);
         libraryManager = new LibraryManager(this, runtime);
+        runtimeUpdateManager = new RuntimeUpdateManager(this, runtime);
         executor = Executors.newSingleThreadExecutor();
         mainHandler = new Handler(Looper.getMainLooper());
         compactLayout = getResources().getConfiguration().screenWidthDp < 700;
@@ -151,6 +154,7 @@ public class MainActivity extends Activity {
         refreshFiles();
         openFile(DEFAULT_FILE);
         warmUpRuntime();
+        checkRuntimeUpdateOnBoot();
     }
 
     @Override
@@ -287,6 +291,15 @@ public class MainActivity extends Activity {
             }
         });
         toolbar.addView(libsButton);
+
+        Button runtimeButton = makeToolbarButton("Runtime", false);
+        runtimeButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showRuntimeDialog();
+            }
+        });
+        toolbar.addView(runtimeButton);
 
         View spacer = new View(this);
         toolbar.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1f));
@@ -800,6 +813,271 @@ public class MainActivity extends Activity {
                 }
             }
         });
+    }
+
+    private void checkRuntimeUpdateOnBoot() {
+        lastRuntimeStatus = runtimeUpdateManager.getCachedStatus();
+        executor.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    final RuntimeUpdateManager.RuntimeStatus status = runtimeUpdateManager.checkForUpdates();
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            lastRuntimeStatus = status;
+                            if (status.updateAvailable) {
+                                appendLog(
+                                    "Runtime update available: " + safeLabel(status.latestVersion) +
+                                        " (" + safeLabel(status.latestAssetName) + ")",
+                                    C_YELLOW
+                                );
+                            } else {
+                                appendLog("Runtime check: " + safeLabel(status.message), C_TEXT_2);
+                            }
+                        }
+                    });
+                } catch (final Exception e) {
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            appendLog("Runtime update check failed: " + e.getMessage(), C_YELLOW);
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+    private void showRuntimeDialog() {
+        final ScrollView scroll = new ScrollView(this);
+        scroll.setPadding(dp(12), dp(6), dp(12), dp(6));
+
+        final TextView info = new TextView(this);
+        info.setTextColor(C_TEXT);
+        info.setTypeface(Typeface.MONOSPACE);
+        info.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        info.setLineSpacing(0f, 1.12f);
+        scroll.addView(info, new ScrollView.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        RuntimeUpdateManager.RuntimeStatus cached =
+            lastRuntimeStatus == null ? runtimeUpdateManager.getCachedStatus() : lastRuntimeStatus;
+        info.setText(buildRuntimeStatusText(cached, null));
+
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+            .setTitle("Runtime Downloader")
+            .setView(scroll)
+            .setNegativeButton("Close", null)
+            .setNeutralButton("Refresh", null)
+            .setPositiveButton(runtimeActionLabel(cached), null)
+            .create();
+
+        dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+            @Override
+            public void onShow(DialogInterface dialogInterface) {
+                final Button refreshButton = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
+                final Button downloadButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+                RuntimeUpdateManager.RuntimeStatus status =
+                    lastRuntimeStatus == null ? runtimeUpdateManager.getCachedStatus() : lastRuntimeStatus;
+                downloadButton.setEnabled(canDownloadRuntime(status));
+                downloadButton.setText(runtimeActionLabel(status));
+
+                refreshButton.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        refreshRuntimeStatusForDialog(info, refreshButton, downloadButton);
+                    }
+                });
+
+                downloadButton.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        downloadRuntimeForDialog(info, refreshButton, downloadButton);
+                    }
+                });
+
+                refreshRuntimeStatusForDialog(info, refreshButton, downloadButton);
+            }
+        });
+
+        dialog.show();
+    }
+
+    private void refreshRuntimeStatusForDialog(
+        final TextView info,
+        final Button refreshButton,
+        final Button downloadButton
+    ) {
+        RuntimeUpdateManager.RuntimeStatus current =
+            lastRuntimeStatus == null ? runtimeUpdateManager.getCachedStatus() : lastRuntimeStatus;
+        refreshButton.setEnabled(false);
+        downloadButton.setEnabled(false);
+        info.setText(buildRuntimeStatusText(current, "Checking latest release..."));
+
+        executor.execute(new Runnable() {
+            @Override
+            public void run() {
+                RuntimeUpdateManager.RuntimeStatus status;
+                String error = null;
+                try {
+                    status = runtimeUpdateManager.checkForUpdates();
+                } catch (Exception e) {
+                    status = runtimeUpdateManager.getCachedStatus();
+                    error = e.getMessage();
+                }
+
+                final RuntimeUpdateManager.RuntimeStatus finalStatus = status;
+                final String finalError = error;
+                mainHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        lastRuntimeStatus = finalStatus;
+                        info.setText(buildRuntimeStatusText(finalStatus, finalError == null ? null : "Check failed: " + finalError));
+                        refreshButton.setEnabled(true);
+                        downloadButton.setEnabled(canDownloadRuntime(finalStatus));
+                        downloadButton.setText(runtimeActionLabel(finalStatus));
+
+                        if (finalError != null) {
+                            appendLog("Runtime update check failed: " + finalError, C_YELLOW);
+                            return;
+                        }
+                        if (finalStatus.updateAvailable) {
+                            appendLog(
+                                "Runtime update available: " + safeLabel(finalStatus.latestVersion) +
+                                    " (" + safeLabel(finalStatus.latestAssetName) + ")",
+                                C_YELLOW
+                            );
+                        } else {
+                            appendLog("Runtime check: " + safeLabel(finalStatus.message), C_TEXT_2);
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    private void downloadRuntimeForDialog(
+        final TextView info,
+        final Button refreshButton,
+        final Button downloadButton
+    ) {
+        refreshButton.setEnabled(false);
+        downloadButton.setEnabled(false);
+
+        RuntimeUpdateManager.RuntimeStatus current =
+            lastRuntimeStatus == null ? runtimeUpdateManager.getCachedStatus() : lastRuntimeStatus;
+        info.setText(buildRuntimeStatusText(current, "Starting download + install..."));
+        setStatus("Downloading runtime...");
+
+        executor.execute(new Runnable() {
+            @Override
+            public void run() {
+                RuntimeUpdateManager.RuntimeStatus status = null;
+                String error = null;
+
+                try {
+                    status = runtimeUpdateManager.downloadAndInstallLatest(new RuntimeUpdateManager.ProgressListener() {
+                        @Override
+                        public void onProgress(final String message) {
+                            mainHandler.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    RuntimeUpdateManager.RuntimeStatus shown = lastRuntimeStatus == null
+                                        ? runtimeUpdateManager.getCachedStatus()
+                                        : lastRuntimeStatus;
+                                    info.setText(buildRuntimeStatusText(shown, message));
+                                    appendLog("Runtime: " + message, C_TEXT_2);
+                                }
+                            });
+                        }
+                    });
+                    status = runtimeUpdateManager.checkForUpdates();
+                } catch (Exception e) {
+                    error = e.getMessage();
+                }
+
+                final RuntimeUpdateManager.RuntimeStatus finalStatus =
+                    status == null ? runtimeUpdateManager.getCachedStatus() : status;
+                final String finalError = error;
+
+                mainHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        lastRuntimeStatus = finalStatus;
+                        if (finalError == null) {
+                            setStatus("Runtime updated");
+                            appendLog(
+                                "Runtime installed: " + safeLabel(finalStatus.installedVersion) +
+                                    " (" + safeLabel(finalStatus.installedAssetName) + ")",
+                                C_GREEN
+                            );
+                            info.setText(buildRuntimeStatusText(finalStatus, "Install complete"));
+                        } else {
+                            setStatus("Runtime update failed");
+                            appendLog("Runtime install failed: " + finalError, C_RED);
+                            info.setText(buildRuntimeStatusText(finalStatus, "Install failed: " + finalError));
+                        }
+
+                        refreshButton.setEnabled(true);
+                        downloadButton.setEnabled(canDownloadRuntime(finalStatus));
+                        downloadButton.setText(runtimeActionLabel(finalStatus));
+                    }
+                });
+            }
+        });
+    }
+
+    private boolean canDownloadRuntime(RuntimeUpdateManager.RuntimeStatus status) {
+        return status != null
+            && status.abiSupported
+            && !TextUtils.isEmpty(status.latestVersion)
+            && !TextUtils.isEmpty(status.latestAssetName);
+    }
+
+    private String runtimeActionLabel(RuntimeUpdateManager.RuntimeStatus status) {
+        if (status == null || !status.abiSupported) {
+            return "Download";
+        }
+        if (!status.downloaded) {
+            return "Download";
+        }
+        if (status.updateAvailable) {
+            return "Update";
+        }
+        return "Reinstall";
+    }
+
+    private String buildRuntimeStatusText(RuntimeUpdateManager.RuntimeStatus status, String action) {
+        if (status == null) {
+            status = runtimeUpdateManager.getCachedStatus();
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("Repo: ").append(safeLabel(status.repository)).append('\n');
+        sb.append("Device ABI: ").append(safeLabel(status.deviceAbi)).append('\n');
+        sb.append("Downloaded: ").append(status.downloaded ? "Yes" : "No").append('\n');
+        sb.append("Installed Version: ").append(safeLabel(status.installedVersion)).append('\n');
+        sb.append("Installed Asset: ").append(safeLabel(status.installedAssetName)).append('\n');
+        sb.append("Latest Version: ").append(safeLabel(status.latestVersion)).append('\n');
+        sb.append("Latest Asset: ").append(safeLabel(status.latestAssetName)).append('\n');
+        sb.append("Update Available: ").append(status.updateAvailable ? "Yes" : "No").append('\n');
+        if (status.checkedAtMs > 0) {
+            sb.append("Last Check: ");
+            sb.append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date(status.checkedAtMs)));
+            sb.append('\n');
+        }
+        sb.append("Status: ").append(safeLabel(status.message));
+        if (!TextUtils.isEmpty(action)) {
+            sb.append('\n').append('\n').append("Action: ").append(action);
+        }
+        return sb.toString();
+    }
+
+    private String safeLabel(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return "-";
+        }
+        return value;
     }
 
     private void toggleFiles() {

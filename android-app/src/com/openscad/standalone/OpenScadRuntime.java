@@ -109,6 +109,24 @@ class OpenScadRuntime {
         return projectsDir;
     }
 
+    File getRuntimeRoot() {
+        return runtimeRoot;
+    }
+
+    File getRuntimeBinDir() {
+        return runtimeBin;
+    }
+
+    synchronized void markRuntimeUnprepared() {
+        prepared = false;
+    }
+
+    synchronized void resetRuntimeToBundled() throws IOException {
+        prepared = false;
+        deleteRecursively(runtimeRoot);
+        prepareRuntime();
+    }
+
     File getRendersDir() {
         return rendersDir;
     }
@@ -122,12 +140,12 @@ class OpenScadRuntime {
     }
 
     synchronized void prepareRuntime() throws IOException {
-        if (prepared) {
-            return;
-        }
-
         File marker = new File(runtimeRoot, ".ready");
         File openscad = new File(runtimeBin, "openscad");
+        if (prepared && marker.exists() && openscad.exists() && openscad.canExecute()) {
+            return;
+        }
+        prepared = false;
         if (marker.exists() && openscad.exists() && openscad.canExecute()) {
             prepared = true;
             return;

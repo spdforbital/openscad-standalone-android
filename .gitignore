@@ -2,3 +2,4 @@ build/
 OpenSCAD-Standalone.apk
 *.idsig
 android-app/assets/runtime/
+release-assets/
