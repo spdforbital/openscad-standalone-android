@@ -64,6 +64,7 @@ Notes:
 - Build on each target device architecture (for example, run once on `arm64-v8a` device and once on `armeabi-v7a` device) to get matching binaries.
 - Runtime execution in the Android app is standalone and does not require the Termux app process.
 - The `TERMUX_PREFIX` default in helper scripts is only a build-time default path; the APK/runtime updater do not depend on the Termux app being installed.
+- CI option for `armeabi-v7a`: run GitHub Actions workflow `Build ARMv7 Runtime` and upload to a chosen release tag.
 
 Supported payload formats:
 

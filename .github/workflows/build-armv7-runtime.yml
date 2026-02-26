@@ -1,0 +1,62 @@
+name: Build ARMv7 Runtime
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to upload asset to"
+        required: true
+        default: "v1.0.12"
+
+permissions:
+  contents: write
+
+jobs:
+  build-armv7-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout app repo
+        uses: actions/checkout@v4
+
+      - name: Checkout termux-packages
+        uses: actions/checkout@v4
+        with:
+          repository: termux/termux-packages
+          path: termux-packages
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk cmake ninja-build zip unzip jq curl
+          sudo mkdir -p /data/data
+          sudo chown -R "$USER":"$USER" /data
+
+      - name: Setup Android SDK and NDK
+        working-directory: termux-packages
+        run: |
+          ./scripts/setup-android-sdk.sh
+
+      - name: Build OpenSCAD package for arm
+        working-directory: termux-packages
+        run: |
+          ./build-package.sh -a arm -I openscad
+
+      - name: Package runtime zip from built prefix
+        run: |
+          chmod +x scripts/package-runtime-from-prefix.sh
+          TERMUX_PREFIX=/data/data/com.termux/files/usr \
+            ./scripts/package-runtime-from-prefix.sh armeabi-v7a
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openscad-runtime-armeabi-v7a
+          path: release-assets/openscad-runtime-armeabi-v7a.zip
+          if-no-files-found: error
+
+      - name: Upload runtime asset to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.release_tag }}
+          files: release-assets/openscad-runtime-armeabi-v7a.zip
+          fail_on_unmatched_files: true
